@@ -1,112 +1,219 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getAllLeads } from '@/lib/supabase'
+import { useParams } from 'next/navigation'
+import { getLeadDetail, updateDraftStatus } from '@/lib/supabase'
 
-export default function AllLeadsPage() {
-  const [leads, setLeads] = useState([])
+export default function LeadDetailPage() {
+  const params = useParams()
+  const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [minScore, setMinScore] = useState('')
-  const [dinsFilter, setDinsFilter] = useState('')
 
   useEffect(() => {
     async function load() {
-      const data = await getAllLeads({
-        search: search || undefined,
-        minScore: minScore ? parseInt(minScore) : undefined,
-        dins_damage: dinsFilter || undefined,
-      })
-      setLeads(data)
+      const data = await getLeadDetail(params.id)
+      setLead(data)
       setLoading(false)
     }
     load()
-  }, [search, minScore, dinsFilter])
+  }, [params.id])
+
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="text-accent animate-pulse text-sm">Loading lead...</div></div>
+  if (!lead) return <div className="p-8 text-slate-500">Lead not found</div>
+
+  const scoreColor = lead.score >= 85 ? '#ff6b35' : lead.score >= 75 ? '#ff8f65' : lead.score >= 50 ? '#fbbf24' : '#6b7280'
+  const totalPermits = 1 + (lead.stackedPermits?.length || 0)
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-tight">All Leads</h1>
-        <p className="text-sm text-slate-500 mt-1">{leads.length} permits in fire zone</p>
+    <div className="p-8 max-w-5xl">
+      <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors mb-4 inline-block">&larr; Back to all leads</a>
+
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{lead.address}</h1>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <DamageBadge damage={lead.dins_damage} />
+            <span className="badge badge-permit">{lead.permit_type}</span>
+            <span className="badge badge-stage">{lead.permit_stage}</span>
+            {totalPermits > 1 && <span className="badge badge-stack">{totalPermits} permits stacked</span>}
+            {lead.is_perimeter_edge && <span className="badge badge-fire">Perimeter edge</span>}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="relative w-[72px] h-[72px]">
+            <svg width="72" height="72" viewBox="0 0 72 72" className="score-ring">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="#1e2030" strokeWidth="4" />
+              <circle cx="36" cy="36" r="30" fill="none" stroke={scoreColor} strokeWidth="4"
+                strokeDasharray={2 * Math.PI * 30} strokeDashoffset={2 * Math.PI * 30 * (1 - lead.score / 100)} strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold" style={{ color: scoreColor }}>
+              {lead.score}
+            </div>
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Score</div>
+        </div>
       </div>
 
-      <div className="flex gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search by address..."
-          value={search}
-          onChange={e => { setLoading(true); setSearch(e.target.value) }}
-          className="flex-1 bg-navy-800 border border-navy-600 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-650 focus:outline-none focus:border-accent"
-        />
-        <select
-          value={minScore}
-          onChange={e => { setLoading(true); setMinScore(e.target.value) }}
-          className="bg-navy-800 border border-navy-600 rounded-lg px-4 py-2.5 text-sm text-slate-400 focus:outline-none focus:border-accent"
-        >
-          <option value="">Min score: Any</option>
-          <option value="90">90+</option>
-          <option value="80">80+</option>
-          <option value="75">75+ (Hot)</option>
-          <option value="50">50+</option>
-        </select>
-        <select
-          value={dinsFilter}
-          onChange={e => { setLoading(true); setDinsFilter(e.target.value) }}
-          className="bg-navy-800 border border-navy-600 rounded-lg px-4 py-2.5 text-sm text-slate-400 focus:outline-none focus:border-accent"
-        >
-          <option value="">Damage: All</option>
-          <option value="Destroyed (>50%)">Destroyed</option>
-          <option value="Major (26-50%)">Major</option>
-          <option value="Minor (10-25%)">Minor</option>
-          <option value="Affected (1-9%)">Affected</option>
-          <option value="No Damage">No damage</option>
-        </select>
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Property details</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Detail label="Bedrooms" value={lead.beds || '-'} />
+            <Detail label="Bathrooms" value={lead.baths || '-'} />
+            <Detail label="Square feet" value={lead.sqft ? lead.sqft.toLocaleString() : '-'} />
+            <Detail label="Year built" value={lead.year_built || '-'} />
+            <Detail label="Assessed value" value={lead.assessor_value ? `$${(lead.assessor_value / 1e6).toFixed(2)}M` : '-'} />
+            <Detail label="APN" value={lead.apn || '-'} />
+          </div>
+        </div>
+
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Fire damage intel</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Detail label="DINS classification" value={lead.dins_damage || '-'} />
+            <Detail label="Structure type" value={lead.dins_structure_type || '-'} />
+            <Detail label="Fire damage flag" value={lead.fire_damage_flag || '-'} />
+            <Detail label="Fire zone" value={lead.fire_zone_match ? 'Inside perimeter' : 'Outside'} />
+            <Detail label="Distance to perimeter" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
+            <Detail label="DINS match accuracy" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-20 text-accent animate-pulse text-sm">Loading leads...</div>
-      ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-navy-600">
-                <th className="text-left px-4 py-3 metric-label">Address</th>
-                <th className="text-left px-4 py-3 metric-label">Permit</th>
-                <th className="text-left px-4 py-3 metric-label">Stage</th>
-                <th className="text-left px-4 py-3 metric-label">Damage</th>
-                <th className="text-right px-4 py-3 metric-label">Score</th>
-                <th className="text-right px-4 py-3 metric-label">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.slice(0, 100).map(lead => (
-                <tr key={lead.id} className="border-b border-navy-700 hover:bg-navy-700 cursor-pointer transition-colors"
-                  onClick={() => window.location.href = `/leads/${lead.id}`}>
-                  <td className="px-4 py-3">
-                    <div className="text-white font-medium">{lead.address}</div>
-                    <div className="text-xs text-slate-650 mt-0.5">
-                      {lead.beds > 0 && `${lead.beds}bd`} {lead.baths > 0 && `${lead.baths}ba`} {lead.sqft > 0 && `${lead.sqft.toLocaleString()}sf`}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-400">{lead.permit_type}</td>
-                  <td className="px-4 py-3 text-slate-400">{lead.permit_stage}</td>
-                  <td className="px-4 py-3">
-                    <DamagePill damage={lead.dins_damage} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="font-bold font-mono" style={{ color: lead.score >= 75 ? '#ff6b35' : lead.score >= 50 ? '#fbbf24' : '#6b7280' }}>
-                      {lead.score}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-400">
-                    {lead.assessor_value > 0 ? `$${(lead.assessor_value / 1e6).toFixed(1)}M` : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {leads.length > 100 && (
-            <div className="text-center py-4 text-xs text-slate-650">
-              Showing 100 of {leads.length} leads
+      <div className="card p-5 mb-6">
+        <h3 className="text-sm font-semibold text-white mb-4">Permit timeline</h3>
+        <div className="grid grid-cols-4 gap-4">
+          <Detail label="Permit number" value={lead.permit_number || '-'} />
+          <Detail label="Filed" value={formatDate(lead.permit_filed_at)} />
+          <Detail label="Issued" value={formatDate(lead.permit_issued_at)} />
+          <Detail label="Permit value" value={lead.estimated_value ? `$${lead.estimated_value.toLocaleString()}` : '-'} />
+        </div>
+        {(lead.permit_filed_at || lead.permit_issued_at) && (
+          <div className="mt-4 flex items-center gap-2">
+            {lead.permit_filed_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-accent/50" />
+                <span className="text-xs text-slate-500">Filed {formatDate(lead.permit_filed_at)}</span>
+              </div>
+            )}
+            {lead.permit_filed_at && lead.permit_issued_at && (
+              <div className="flex-1 h-px bg-accent/20 mx-2" />
+            )}
+            {lead.permit_issued_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-accent" />
+                <span className="text-xs text-slate-500">Issued {formatDate(lead.permit_issued_at)}</span>
+              </div>
+            )}
+            <div className="flex-1 h-px bg-navy-600 mx-2" />
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border-2 border-slate-650" />
+              <span className="text-xs text-slate-650">{lead.permit_stage}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {lead.stackedPermits && lead.stackedPermits.length > 0 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4">
+            Permit stack at this address
+            <span className="ml-2 text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-semibold">{totalPermits} total</span>
+          </h3>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-accent/30">
+              <div className="w-2 h-2 rounded-full bg-accent" />
+              <div className="flex-1">
+                <span className="text-sm text-white font-medium">{lead.permit_type}</span>
+                <span className="text-xs text-slate-500 ml-2">#{lead.permit_number}</span>
+              </div>
+              <span className="badge badge-stage">{lead.permit_stage}</span>
+              <span className="text-xs text-slate-500">{formatDate(lead.permit_issued_at)}</span>
+              <span className="text-xs text-accent font-medium">Current</span>
+            </div>
+            {lead.stackedPermits.map(p => (
+              <a href={`/leads/${p.id}`} key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-navy-600 hover:border-accent/30 transition-colors">
+                <div className="w-2 h-2 rounded-full bg-slate-650" />
+                <div className="flex-1">
+                  <span className="text-sm text-slate-300">{p.permit_type}</span>
+                  <span className="text-xs text-slate-650 ml-2">#{p.permit_number}</span>
+                </div>
+                <span className="badge badge-stage">{p.permit_stage}</span>
+                <span className="text-xs text-slate-500">{formatDate(p.permit_issued_at)}</span>
+                {p.estimated_value > 0 && <span className="text-xs text-slate-500">${p.estimated_value.toLocaleString()}</span>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lead.reasoning && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-3">AI score reasoning</h3>
+          <p className="text-sm text-slate-400 leading-relaxed">{lead.reasoning}</p>
+        </div>
+      )}
+
+      {lead.permit_description && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-3">Permit description</h3>
+          <p className="text-sm text-slate-400 leading-relaxed">{lead.permit_description}</p>
+        </div>
+      )}
+
+      {lead.drafts && lead.drafts.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-white mb-4">Draft outreach ({lead.drafts.length})</h3>
+          <div className="flex flex-col gap-3">
+            {lead.drafts.map(draft => (
+              <DraftCard key={draft.id} draft={draft} onUpdate={async (id, status) => {
+                await updateDraftStatus(id, status)
+                const updated = await getLeadDetail(params.id)
+                setLead(updated)
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Detail({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs text-slate-650 mb-1">{label}</div>
+      <div className="text-sm text-white font-medium">{value}</div>
+    </div>
+  )
+}
+
+function formatDate(d) {
+  if (!d) return '-'
+  try {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch { return d }
+}
+
+function DraftCard({ draft, onUpdate }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium text-white">{draft.subject}</div>
+        <div className="flex items-center gap-2">
+          <StatusBadge status={draft.status} />
+          <button onClick={() => setExpanded(!expanded)} className="text-xs text-slate-500 hover:text-accent">
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-3">
+          <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap bg-navy-900 rounded-lg p-4 mb-3">{draft.body}</div>
+          {draft.status === 'pending_review' && (
+            <div className="flex gap-2">
+              <button className="btn-primary text-xs" onClick={() => onUpdate(draft.id, 'approved')}>Approve</button>
+              <button className="btn-secondary text-xs" onClick={() => navigator.clipboard.writeText(draft.body)}>Copy</button>
             </div>
           )}
         </div>
@@ -115,15 +222,15 @@ export default function AllLeadsPage() {
   )
 }
 
-function DamagePill({ damage }) {
-  if (!damage || damage === 'Unknown') return <span className="text-slate-650 text-xs">-</span>
-  const cls = damage.includes('Destroyed') ? 'badge-destroyed'
-    : damage.includes('Major') ? 'badge-major'
-    : damage.includes('Minor') ? 'badge-minor'
-    : damage.includes('Affected') ? 'badge-affected' : 'badge-nodamage'
-  const label = damage.includes('Destroyed') ? 'Destroyed'
-    : damage.includes('Major') ? 'Major'
-    : damage.includes('Minor') ? 'Minor'
-    : damage.includes('Affected') ? 'Affected' : 'No damage'
+function StatusBadge({ status }) {
+  const styles = { pending_review: 'bg-amber-500/15 text-amber-400', approved: 'bg-green-500/15 text-green-400', sent: 'bg-blue-500/15 text-blue-400' }
+  const labels = { pending_review: 'Pending', approved: 'Approved', sent: 'Sent' }
+  return <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${styles[status] || ''}`}>{labels[status] || status}</span>
+}
+
+function DamageBadge({ damage }) {
+  if (!damage || damage === 'Unknown') return null
+  const cls = damage.includes('Destroyed') ? 'badge-destroyed' : damage.includes('Major') ? 'badge-major' : damage.includes('Minor') ? 'badge-minor' : damage.includes('Affected') ? 'badge-affected' : 'badge-nodamage'
+  const label = damage.includes('Destroyed') ? 'Destroyed' : damage.includes('Major') ? 'Major' : damage.includes('Minor') ? 'Minor' : damage.includes('Affected') ? 'Affected' : 'No damage'
   return <span className={`badge ${cls}`}>{label}</span>
 }
