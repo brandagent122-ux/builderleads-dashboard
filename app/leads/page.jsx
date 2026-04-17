@@ -2,12 +2,27 @@
 import { useState, useEffect } from 'react'
 import { getAllLeads } from '@/lib/supabase'
 
+const TRADE_PRESETS = {
+  all: { label: 'All trades', permit_types: null, dins: null, stages: null },
+  hvac: { label: 'HVAC', permit_types: ['Bldg-New','Bldg-Addition'], dins: ['Destroyed (>50%)','Major (26-50%)'], stages: ['Issued','Plan Check'] },
+  plumbing: { label: 'Plumbing', permit_types: ['Bldg-New','Bldg-Addition'], dins: ['Destroyed (>50%)','Major (26-50%)'], stages: ['Issued','Plan Check'] },
+  electrical: { label: 'Electrical', permit_types: ['Bldg-New','Bldg-Addition'], dins: ['Destroyed (>50%)','Major (26-50%)'], stages: ['Issued','Plan Check'] },
+  roofing: { label: 'Roofing', permit_types: ['Bldg-New','Bldg-Alter/Repair'], dins: ['Destroyed (>50%)','Major (26-50%)','Minor (10-25%)'], stages: ['Issued'] },
+  solar: { label: 'Solar', permit_types: ['Bldg-New'], dins: null, stages: ['Issued','Permit Finaled'] },
+  gc: { label: 'General contractor', permit_types: ['Bldg-New'], dins: ['Destroyed (>50%)'], stages: ['Issued','Plan Check'] },
+  landscape: { label: 'Landscape / pool', permit_types: ['Bldg-New','Swimming-Pool/Spa'], dins: null, stages: ['Issued'] },
+  adjuster: { label: 'Public adjuster', permit_types: null, dins: ['Destroyed (>50%)','Major (26-50%)'], stages: null },
+  lender: { label: 'Construction lender', permit_types: ['Bldg-New'], dins: ['Destroyed (>50%)'], stages: ['Issued','Plan Check'] },
+  architect: { label: 'Architect / engineer', permit_types: ['Bldg-New','Grading'], dins: ['Destroyed (>50%)'], stages: ['Plan Check','Issued'] },
+}
+
 export default function AllLeadsPage() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [minScore, setMinScore] = useState('')
   const [dinsFilter, setDinsFilter] = useState('')
+  const [trade, setTrade] = useState('all')
 
   useEffect(() => {
     async function load() {
@@ -16,20 +31,44 @@ export default function AllLeadsPage() {
         minScore: minScore ? parseInt(minScore) : undefined,
         dins_damage: dinsFilter || undefined,
       })
-      setLeads(data)
+
+      const preset = TRADE_PRESETS[trade]
+      let filtered = data
+
+      if (preset && preset.permit_types) {
+        filtered = filtered.filter(l => preset.permit_types.some(pt => l.permit_type?.includes(pt)))
+      }
+      if (preset && preset.dins) {
+        filtered = filtered.filter(l => preset.dins.some(d => l.dins_damage?.includes(d)))
+      }
+      if (preset && preset.stages) {
+        filtered = filtered.filter(l => preset.stages.some(s => l.permit_stage?.includes(s)))
+      }
+
+      setLeads(filtered)
       setLoading(false)
     }
+    setLoading(true)
     load()
-  }, [search, minScore, dinsFilter])
+  }, [search, minScore, dinsFilter, trade])
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white tracking-tight">All Leads</h1>
-        <p className="text-sm text-slate-500 mt-1">{leads.length} permits in fire zone</p>
+        <p className="text-sm text-slate-500 mt-1">{leads.length} permits{trade !== 'all' ? ` for ${TRADE_PRESETS[trade].label}` : ' in fire zone'}</p>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-4">
+        <select
+          value={trade}
+          onChange={e => { setLoading(true); setTrade(e.target.value) }}
+          className="bg-accent/15 border border-accent/30 rounded-lg px-4 py-2.5 text-sm text-accent font-medium focus:outline-none focus:border-accent"
+        >
+          {Object.entries(TRADE_PRESETS).map(([key, val]) => (
+            <option key={key} value={key}>{val.label}</option>
+          ))}
+        </select>
         <input
           type="text"
           placeholder="Search by address..."
@@ -61,6 +100,17 @@ export default function AllLeadsPage() {
           <option value="No Damage">No damage</option>
         </select>
       </div>
+
+      {trade !== 'all' && (
+        <div className="mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+          <div className="flex items-center gap-2 text-xs text-accent">
+            <span className="font-semibold">{TRADE_PRESETS[trade].label} filter active:</span>
+            {TRADE_PRESETS[trade].permit_types && <span>Permits: {TRADE_PRESETS[trade].permit_types.join(', ')}</span>}
+            {TRADE_PRESETS[trade].dins && <span>| Damage: {TRADE_PRESETS[trade].dins.map(d => d.split(' ')[0]).join(', ')}</span>}
+            {TRADE_PRESETS[trade].stages && <span>| Stage: {TRADE_PRESETS[trade].stages.join(', ')}</span>}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-20 text-accent animate-pulse text-sm">Loading leads...</div>
@@ -108,6 +158,9 @@ export default function AllLeadsPage() {
             <div className="text-center py-4 text-xs text-slate-650">
               Showing 100 of {leads.length} leads
             </div>
+          )}
+          {leads.length === 0 && (
+            <div className="text-center py-12 text-slate-650">No leads match your filters</div>
           )}
         </div>
       )}
