@@ -129,13 +129,13 @@ export default function AllLeadsPage() {
             className="absolute left-3 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </div>
         <select value={minScore} onChange={e => { setLoading(true); setMinScore(e.target.value) }}
-          className="input-sunk text-sm px-4" style={{ minWidth: 130 }}>
+          className="input-sunk text-[13px] px-4 pr-9" style={{ minWidth: 130 }}>
           <option value="">Min score: Any</option>
           <option value="90">90+</option><option value="80">80+</option>
           <option value="75">75+ (Hot)</option><option value="50">50+</option>
         </select>
         <select value={dinsFilter} onChange={e => { setLoading(true); setDinsFilter(e.target.value) }}
-          className="input-sunk text-sm px-4" style={{ minWidth: 130 }}>
+          className="input-sunk text-[13px] px-4 pr-9" style={{ minWidth: 130 }}>
           <option value="">Damage: All</option>
           <option value="Destroyed (>50%)">Destroyed</option><option value="Major (26-50%)">Major</option>
           <option value="Minor (10-25%)">Minor</option><option value="Affected (1-9%)">Affected</option>

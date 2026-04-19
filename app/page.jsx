@@ -152,16 +152,16 @@ function KPITile({ icon, label, value, sub, accent }) {
 
 function LeadCard({ lead, rank, isNew, onClick }) {
   const scoreColor = lead.score >= 85 ? 'var(--ember)' : lead.score >= 75 ? 'var(--ember-hi)' : lead.score >= 50 ? 'var(--amber)' : 'var(--ink-3)'
-  const c = 2 * Math.PI * 19, o = c - (lead.score / 100) * c
+  const c = 2 * Math.PI * 22, o = c - (lead.score / 100) * c
   return (
     <div onClick={onClick} className={`card-raised card-hover p-4 flex items-center gap-4 cursor-pointer ${isNew ? 'lead-new' : ''}`}>
       <span className="font-mono text-[11px] text-ink-2 w-5 text-center">{rank}</span>
-      <div className="relative w-12 h-12 flex-shrink-0">
-        <svg width="48" height="48" viewBox="0 0 48 48" className="score-ring">
-          <circle cx="24" cy="24" r="19" fill="none" stroke="var(--card-sunk)" strokeWidth="3" />
-          <circle cx="24" cy="24" r="19" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
+      <div className="relative w-14 h-14 flex-shrink-0">
+        <svg width="56" height="56" viewBox="0 0 56 56" className="score-ring">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--card-sunk)" strokeWidth="3" />
+          <circle cx="28" cy="28" r="22" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold" style={{ color: scoreColor }}>{lead.score}</div>
+        <div className="absolute inset-0 flex items-center justify-center font-mono text-base font-bold" style={{ color: scoreColor }}>{lead.score}</div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">

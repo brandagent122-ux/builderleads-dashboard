@@ -340,3 +340,22 @@ body {
 .tab.active { background: var(--card); color: var(--ember); box-shadow: var(--shadow-raised-sm); }
 .tab:not(.active) { color: var(--ink-3); }
 .tab:not(.active):hover { color: var(--ink-1); }
+
+/* Neumorphic select dropdowns */
+select.input-sunk {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23555560' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+select.input-sunk:focus {
+  border-color: var(--ember);
+}
+select.input-sunk option {
+  background: var(--card);
+  color: var(--ink-0);
+  padding: 8px 12px;
+}
