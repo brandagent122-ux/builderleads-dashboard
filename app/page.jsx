@@ -79,7 +79,7 @@ export default function CommandCenter() {
         <div className="atlas-card p-4 mb-6 flex items-start gap-4">
           <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
             <div className="w-2 h-2 rounded-full bg-ember animate-pulse" />
-            <span className="font-mono text-[11px] text-ember tracking-wider">ATLAS</span>
+            <span className="font-mono text-[11px] text-ember tracking-wider">UPDATE</span>
           </div>
           <p className="text-[14px] text-ink-1 leading-relaxed flex-1">
             Pipeline ran at <mark>5:00 AM PT</mark>. <mark>{stats.hotLeads} high-priority</mark> leads detected.
@@ -152,23 +152,23 @@ function KPITile({ icon, label, value, sub, accent }) {
 
 function LeadCard({ lead, rank, isNew, onClick }) {
   const scoreColor = lead.score >= 85 ? 'var(--ember)' : lead.score >= 75 ? 'var(--ember-hi)' : lead.score >= 50 ? 'var(--amber)' : 'var(--ink-3)'
-  const c = 2 * Math.PI * 16, o = c - (lead.score / 100) * c
+  const c = 2 * Math.PI * 19, o = c - (lead.score / 100) * c
   return (
     <div onClick={onClick} className={`card-raised card-hover p-4 flex items-center gap-4 cursor-pointer ${isNew ? 'lead-new' : ''}`}>
-      <span className="font-mono text-[11px] text-ink-3 w-5 text-center">{rank}</span>
-      <div className="relative w-10 h-10 flex-shrink-0">
-        <svg width="40" height="40" viewBox="0 0 40 40" className="score-ring">
-          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--card-sunk)" strokeWidth="3" />
-          <circle cx="20" cy="20" r="16" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
+      <span className="font-mono text-[11px] text-ink-2 w-5 text-center">{rank}</span>
+      <div className="relative w-12 h-12 flex-shrink-0">
+        <svg width="48" height="48" viewBox="0 0 48 48" className="score-ring">
+          <circle cx="24" cy="24" r="19" fill="none" stroke="var(--card-sunk)" strokeWidth="3" />
+          <circle cx="24" cy="24" r="19" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center font-mono text-xs font-semibold" style={{ color: scoreColor }}>{lead.score}</div>
+        <div className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold" style={{ color: scoreColor }}>{lead.score}</div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-medium text-ink-0">{lead.address}</span>
           {isNew && <span className="tag tag-new text-[9px]">NEW</span>}
         </div>
-        <div className="font-mono text-[11px] text-ink-3 mt-1 tracking-wider">
+        <div className="font-mono text-[11px] text-ink-2 mt-1 tracking-wider">
           {lead.beds > 0 && `${lead.beds} BED`}{lead.baths > 0 && ` \u00B7 ${lead.baths} BATH`}{lead.sqft > 0 && ` \u00B7 ${lead.sqft.toLocaleString()} SQFT`}{lead.year_built > 0 && ` \u00B7 BUILT ${lead.year_built}`}{lead.assessor_value > 0 && ` \u00B7 $${(lead.assessor_value / 1e6).toFixed(1)}M`}
         </div>
         <div className="flex gap-1.5 mt-2 flex-wrap">
