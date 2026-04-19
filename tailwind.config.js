@@ -4,29 +4,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        page: '#141416',
+        stage: '#1B1B1F',
+        card: '#212126',
+        'card-sunk': '#19191D',
+        'card-hover': '#26262B',
+        ember: { DEFAULT: '#FF7A3D', hi: '#FF9A6A', lo: '#CC6231' },
+        ink: { 0: '#FFFFFF', 1: '#B8B8BF', 2: '#6E6E78', 3: '#44444D' },
+        moss: '#4ADE80',
+        ruby: '#F87171',
+        amber: '#FBBF24',
+        sky: '#60A5FA',
+        violet: '#C084FC',
+        // Backward compat
         navy: {
-          950: '#0a0b10',
-          900: '#0f1017',
-          800: '#14151f',
-          700: '#1a1b28',
-          600: '#1e2030',
-          500: '#252738',
-          400: '#2e3045',
-          300: '#3a3d52',
+          950: '#141416', 900: '#19191D', 800: '#1B1B1F', 700: '#212126',
+          600: '#2A2A30', 500: '#333339', 400: '#3D3D44', 300: '#48484F',
         },
-        accent: {
-          DEFAULT: '#ff6b35',
-          light: '#ff8f65',
-          dark: '#cc5529',
-          glow: 'rgba(255,107,53,0.15)',
-        },
-        slate: {
-          650: '#4a4d63',
-        }
+        accent: { DEFAULT: '#FF7A3D', light: '#FF9A6A', dark: '#CC6231' },
+        slate: { 400: '#B8B8BF', 500: '#8E8E98', 650: '#6E6E78' },
       },
       fontFamily: {
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Instrument Serif', 'serif'],
         mono: ['JetBrains Mono', 'monospace'],
+      },
+      borderRadius: {
+        stage: '40px',
+        card: '22px',
+        'card-lg': '26px',
+        pill: '28px',
       },
     },
   },

@@ -12,58 +12,46 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
     })
-
-    if (res.ok) {
-      router.push('/')
-      router.refresh()
-    } else {
-      setError('Invalid password')
-      setLoading(false)
-    }
+    if (res.ok) { router.push('/'); router.refresh() }
+    else { setError('Invalid access code'); setLoading(false) }
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0b10' }}>
-      <div style={{ width: 360, padding: 40, background: '#14151f', borderRadius: 12, border: '1px solid #1e2030' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <div style={{ width: 36, height: 36, background: '#ff6b35', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a0b10" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)' }}>
+      <div className="card-raised" style={{ width: 400, padding: '48px 40px', borderRadius: 'var(--r-card-lg)' }}>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="icon-chip icon-chip-ember">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#141416" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>BuilderLeads</div>
-            <div style={{ fontSize: 12, color: '#ff6b35' }}>Palisades Fire Intel</div>
+            <div className="text-sm font-semibold text-ink-0">BuilderLeads</div>
+            <div className="font-mono text-[10px] text-ember">PALISADES FIRE INTEL</div>
           </div>
         </div>
 
+        <h1 className="text-2xl text-ink-0 mb-8">
+          <span className="font-serif">Welcome </span>
+          <span className="font-serif italic">back</span>
+        </h1>
+
         <form onSubmit={handleSubmit}>
-          <label style={{ fontSize: 12, color: '#6b6c7e', display: 'block', marginBottom: 8 }}>Enter access code</label>
+          <label className="font-mono text-[10px] text-ink-3 tracking-wider block mb-2">ACCESS CODE</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="Access code"
+            placeholder="Enter access code"
             autoFocus
-            style={{
-              width: '100%', padding: '12px 16px', background: '#0a0b10', border: '1px solid #1e2030',
-              borderRadius: 8, color: 'white', fontSize: 14, outline: 'none', marginBottom: 16,
-              boxSizing: 'border-box',
-            }}
+            className="input-sunk w-full mb-4"
+            style={{ height: 46 }}
           />
-          {error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 12 }}>{error}</div>}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%', padding: '12px', background: '#ff6b35', color: '#0a0b10',
-              border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
+          {error && <div className="font-mono text-[11px] text-ruby mb-3">{error}</div>}
+          <button type="submit" disabled={loading} className="btn-ember w-full" style={{ height: 46 }}>
             {loading ? 'Verifying...' : 'Enter'}
           </button>
         </form>
