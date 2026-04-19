@@ -14,7 +14,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <div className="text-xs text-slate-650 mb-1">Market</div>
-            <div className="text-sm text-white font-medium">Palisades Fire Zone</div>
+            <div className="text-sm text-white font-medium">All Markets</div>
           </div>
           <div>
             <div className="text-xs text-slate-650 mb-1">Pipeline status</div>
