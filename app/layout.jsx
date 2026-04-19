@@ -55,7 +55,7 @@ function SidebarClient() {
           <NavItem href="/map" icon="map" label="Map View" />
           <NavItem href="/outreach" icon="mail" label="Outreach Queue" />
 
-          <div className="h-px bg-[var(--line)] my-3" />
+          <div className="h-px bg-[var(--line)] my-2" />
 
           <NavItem href="/saved" icon="star" label="Saved Leads" />
           <NavItem href="/reports" icon="file" label="Reports" />
@@ -63,7 +63,7 @@ function SidebarClient() {
 
           <div className="flex-1" />
 
-          <div className="h-px bg-[var(--line)] my-3" />
+          <div className="h-px bg-[var(--line)] my-2" />
           <a href="/api/logout" className="nav-item text-ink-3 hover:text-ruby">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span>Logout</span>

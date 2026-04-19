@@ -166,7 +166,7 @@ export default function AllLeadsPage() {
               <input type="checkbox" checked={selected.size === displayLeads.length && displayLeads.length > 0}
                 onChange={toggleAll} className="w-4 h-4 rounded accent-ember cursor-pointer" />
             </div>
-            <div className="w-12 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none text-center" onClick={() => toggleSort('score')}>SCORE{arrow('score')}</div>
+            <div className="w-14 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none text-center" onClick={() => toggleSort('score')}>SCORE{arrow('score')}</div>
             <div className="flex-1 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('address')}>ADDRESS{arrow('address')}</div>
             <div className="w-28 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('permit_type')}>PERMIT{arrow('permit_type')}</div>
             <div className="w-24 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('permit_stage')}>STAGE{arrow('permit_stage')}</div>
@@ -185,7 +185,7 @@ export default function AllLeadsPage() {
                   <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)}
                     className="w-4 h-4 rounded accent-ember cursor-pointer" />
                 </div>
-                <div className="w-12 flex justify-center">
+                <div className="w-14 flex justify-center">
                   <ScoreChip score={lead.score} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -222,14 +222,14 @@ export default function AllLeadsPage() {
 
 function ScoreChip({ score }) {
   const color = score >= 85 ? 'var(--ember)' : score >= 75 ? 'var(--ember-hi)' : score >= 50 ? 'var(--amber)' : 'var(--ink-3)'
-  const c = 2 * Math.PI * 14, o = c - (score / 100) * c
+  const c = 2 * Math.PI * 19, o = c - (score / 100) * c
   return (
-    <div className="relative w-9 h-9">
-      <svg width="36" height="36" viewBox="0 0 36 36" className="score-ring">
-        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--card-sunk)" strokeWidth="2.5" />
-        <circle cx="18" cy="18" r="14" fill="none" stroke={color} strokeWidth="2.5" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
+    <div className="relative w-12 h-12">
+      <svg width="48" height="48" viewBox="0 0 48 48" className="score-ring">
+        <circle cx="24" cy="24" r="19" fill="none" stroke="var(--card-sunk)" strokeWidth="2.5" />
+        <circle cx="24" cy="24" r="19" fill="none" stroke={color} strokeWidth="2.5" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center font-mono text-[11px] font-bold" style={{ color }}>{score}</div>
+      <div className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold" style={{ color }}>{score}</div>
     </div>
   )
 }
