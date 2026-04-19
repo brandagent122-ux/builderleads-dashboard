@@ -7,8 +7,15 @@ export default function LeadDetailPage() {
   const params = useParams()
   const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    const s = localStorage.getItem('bl_saved_leads')
+    if (s) {
+      const set = new Set(JSON.parse(s))
+      setSaved(set.has(parseInt(params.id)))
+    }
+
     async function load() {
       const data = await getLeadDetail(params.id)
       setLead(data)
@@ -16,6 +23,15 @@ export default function LeadDetailPage() {
     }
     load()
   }, [params.id])
+
+  function toggleSave() {
+    const s = localStorage.getItem('bl_saved_leads')
+    const set = s ? new Set(JSON.parse(s)) : new Set()
+    const id = parseInt(params.id)
+    if (set.has(id)) { set.delete(id); setSaved(false) }
+    else { set.add(id); setSaved(true) }
+    localStorage.setItem('bl_saved_leads', JSON.stringify([...set]))
+  }
 
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="text-accent animate-pulse text-sm">Loading lead...</div></div>
   if (!lead) return <div className="p-8 text-slate-500">Lead not found</div>
@@ -29,7 +45,17 @@ export default function LeadDetailPage() {
 
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">{lead.address}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-white tracking-tight">{lead.address}</h1>
+            <button onClick={toggleSave} className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors" title={saved ? 'Remove from saved' : 'Save lead'}>
+              <svg width="22" height="22" viewBox="0 0 24 24"
+                fill={saved ? '#ff6b35' : 'none'}
+                stroke={saved ? '#ff6b35' : '#4a4d63'}
+                strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
+          </div>
           <div className="flex gap-2 mt-2 flex-wrap">
             <DamageBadge damage={lead.dins_damage} />
             <span className="badge badge-permit">{lead.permit_type}</span>
@@ -189,9 +215,8 @@ function Detail({ label, value }) {
 
 function formatDate(d) {
   if (!d) return '-'
-  try {
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch { return d }
+  try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+  catch { return d }
 }
 
 function DraftCard({ draft, onUpdate }) {
