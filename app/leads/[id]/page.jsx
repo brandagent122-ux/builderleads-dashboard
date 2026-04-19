@@ -157,16 +157,7 @@ export default function LeadDetailPage() {
               <span className="text-xs text-accent font-medium">Current</span>
             </div>
             {lead.stackedPermits.map(p => (
-              <a href={`/leads/${p.id}`} key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-navy-600 hover:border-accent/30 transition-colors">
-                <div className="w-2 h-2 rounded-full bg-slate-650" />
-                <div className="flex-1">
-                  <span className="text-sm text-slate-300">{p.permit_type}</span>
-                  <span className="text-xs text-slate-650 ml-2">#{p.permit_number}</span>
-                </div>
-                <span className="badge badge-stage">{p.permit_stage}</span>
-                <span className="text-xs text-slate-500">{formatDate(p.permit_issued_at)}</span>
-                {p.estimated_value > 0 && <span className="text-xs text-slate-500">${p.estimated_value.toLocaleString()}</span>}
-              </a>
+              <PermitAccordion key={p.id} permit={p} />
             ))}
           </div>
         </div>
@@ -198,6 +189,59 @@ export default function LeadDetailPage() {
               }} />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PermitAccordion({ permit }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-lg bg-navy-800 border border-navy-600 overflow-hidden transition-all">
+      <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-navy-700 transition-colors" onClick={() => setOpen(!open)}>
+        <div className="w-2 h-2 rounded-full bg-slate-650" />
+        <div className="flex-1">
+          <span className="text-sm text-slate-300">{permit.permit_type}</span>
+          <span className="text-xs text-slate-650 ml-2">#{permit.permit_number}</span>
+        </div>
+        <span className="badge badge-stage">{permit.permit_stage}</span>
+        <span className="text-xs text-slate-500">{formatDate(permit.permit_issued_at)}</span>
+        {permit.estimated_value > 0 && <span className="text-xs text-slate-500">${permit.estimated_value.toLocaleString()}</span>}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          className={`text-slate-650 transition-transform ${open ? 'rotate-180' : ''}`}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      {open && (
+        <div className="px-4 pb-3 pt-1 border-t border-navy-700">
+          <div className="flex items-center gap-3 mt-2">
+            {permit.permit_filed_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-accent/50" />
+                <span className="text-xs text-slate-500">Filed {formatDate(permit.permit_filed_at)}</span>
+              </div>
+            )}
+            {permit.permit_filed_at && permit.permit_issued_at && (
+              <div className="flex-1 h-px bg-accent/20 mx-1" />
+            )}
+            {permit.permit_issued_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
+                <span className="text-xs text-slate-500">Issued {formatDate(permit.permit_issued_at)}</span>
+              </div>
+            )}
+            <div className="flex-1 h-px bg-navy-600 mx-1" />
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full border-2 border-slate-650" />
+              <span className="text-xs text-slate-650">{permit.permit_stage}</span>
+            </div>
+          </div>
+          {permit.estimated_value > 0 && (
+            <div className="mt-2 text-xs text-slate-500">
+              Permit value: <span className="text-white font-medium">${permit.estimated_value.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
