@@ -53,24 +53,12 @@ export default function CommandCenter() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
   return (
-    <div className="relative">
-      {/* Embossed watermark stamp */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        width: 500, height: 500, opacity: 0.025, pointerEvents: 'none', zIndex: 0,
-        filter: 'drop-shadow(2px 2px 0px rgba(0,0,0,0.3)) drop-shadow(-1px -1px 0px rgba(255,255,255,0.02))',
-      }}>
-        <svg width="500" height="500" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L3 22h4l1.5-4h7l1.5 4h4L12 2zm-1.5 12L12 8l1.5 6h-3z" fill="#FFFFFF"/>
-          <polygon points="12,5 12.9,7.8 15.8,7.8 13.4,9.5 14.3,12.3 12,10.6 9.7,12.3 10.6,9.5 8.2,7.8 11.1,7.8" fill="#CC2936"/>
-        </svg>
-      </div>
-      <div className="relative z-10">
+    <div>
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-ink-0 tracking-tight">Command Center</h1>
           <p className="font-mono text-[11px] text-ink-3 mt-2 tracking-wider uppercase">
-            American Leads &middot; {today}
+            Palisades Fire Intel &middot; {today}
           </p>
         </div>
         {newCount > 0 && (
@@ -138,7 +126,6 @@ export default function CommandCenter() {
             <div className="font-mono text-[11px] text-ink-3 mt-0.5">{stats.totalLeads} ACTIVE LEADS</div>
           </div>
         </a>
-      </div>
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'American Leads | American Leads',
-  description: 'Permit intelligence platform',
+  title: 'BuilderLeads | Palisades Fire Intel',
+  description: 'Permit intelligence for Palisades fire rebuild',
 }
 
 export default function RootLayout({ children }) {
@@ -40,11 +40,11 @@ function SidebarClient() {
         {/* Logo */}
         <a href="/" className="flex items-center gap-3 px-2 mb-6">
           <div className="icon-chip icon-chip-ember">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 22h4l1.5-4h7l1.5 4h4L12 2zm-1.5 12L12 8l1.5 6h-3z" fill="#FFFFFF"/><polygon points="12,5 12.9,7.8 15.8,7.8 13.4,9.5 14.3,12.3 12,10.6 9.7,12.3 10.6,9.5 8.2,7.8 11.1,7.8" fill="#CC2936"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#141416" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <div>
-            <div className="text-sm font-semibold text-ink-0 tracking-tight">American Leads</div>
-            <div className="font-mono text-[10px] text-ember tracking-wide">AMERICAN LEADS</div>
+            <div className="text-sm font-semibold text-ink-0 tracking-tight">BuilderLeads</div>
+            <div className="font-mono text-[10px] text-ember tracking-wide">PALISADES FIRE INTEL</div>
           </div>
         </a>
 

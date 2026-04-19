@@ -22,39 +22,78 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)' }}>
-      <div className="card-raised" style={{ width: 400, padding: '48px 40px', borderRadius: 'var(--r-card-lg)' }}>
-        <div className="flex items-center gap-3 mb-8">
-          <div className="icon-chip icon-chip-ember">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 22h4l1.5-4h7l1.5 4h4L12 2zm-1.5 12L12 8l1.5 6h-3z" fill="#FFFFFF"/><polygon points="12,5 12.9,7.8 15.8,7.8 13.4,9.5 14.3,12.3 12,10.6 9.7,12.3 10.6,9.5 8.2,7.8 11.1,7.8" fill="#CC2936"/></svg>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: '#141416',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: 420, padding: '48px 40px',
+        background: '#212126',
+        borderRadius: 26,
+        boxShadow: '6px 6px 14px rgba(0,0,0,0.45), -4px -4px 12px rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 40 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 12,
+            background: 'linear-gradient(135deg, #FF7A3D, #CC6231)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#141416" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <div>
-            <div className="text-sm font-semibold text-ink-0">American Leads</div>
-            <div className="font-mono text-[10px] text-ember">AMERICAN LEADS</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.3px' }}>BuilderLeads</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#FF7A3D', letterSpacing: 1.5 }}>PALISADES FIRE INTEL</div>
           </div>
         </div>
 
-        <h1 className="text-2xl text-ink-0 mb-8">
-          <span className="font-serif">Welcome </span>
-          <span className="font-serif italic">back</span>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#FFFFFF', marginBottom: 8, letterSpacing: '-0.5px' }}>
+          Welcome back
         </h1>
+        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#555560', marginBottom: 32, letterSpacing: 0.5 }}>
+          Enter your access code to continue
+        </p>
 
         <form onSubmit={handleSubmit}>
-          <label className="font-mono text-[10px] text-ink-3 tracking-wider block mb-2">ACCESS CODE</label>
+          <label style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#555560', letterSpacing: 1.2, display: 'block', marginBottom: 8 }}>ACCESS CODE</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="Enter access code"
+            placeholder="Enter code"
             autoFocus
-            className="input-sunk w-full mb-4"
-            style={{ height: 46 }}
+            style={{
+              width: '100%', height: 48, padding: '0 18px',
+              background: '#19191D',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 14,
+              boxShadow: 'inset 3px 3px 8px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(255,255,255,0.025)',
+              color: '#FFFFFF', fontSize: 15, outline: 'none',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              boxSizing: 'border-box',
+              marginBottom: error ? 0 : 20,
+            }}
           />
-          {error && <div className="font-mono text-[11px] text-ruby mb-3">{error}</div>}
-          <button type="submit" disabled={loading} className="btn-ember w-full" style={{ height: 46 }}>
-            {loading ? 'Verifying...' : 'Enter'}
+          {error && <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#F87171', margin: '10px 0 10px' }}>{error}</div>}
+          <button type="submit" disabled={loading} style={{
+            width: '100%', height: 48,
+            background: loading ? '#19191D' : 'linear-gradient(135deg, #FF7A3D, #CC6231)',
+            color: loading ? '#555560' : '#141416',
+            fontWeight: 700, fontSize: 14, border: 'none', borderRadius: 14,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: 'JetBrains Mono, monospace', letterSpacing: 0.5,
+            boxShadow: loading ? 'inset 3px 3px 8px rgba(0,0,0,0.5)' : '4px 4px 10px rgba(0,0,0,0.35), -3px -3px 8px rgba(255,255,255,0.025)',
+          }}>
+            {loading ? 'VERIFYING...' : 'ENTER'}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#555560' }}>
+            POWERED BY RU4REELZ
+          </span>
+        </div>
       </div>
     </div>
   )
