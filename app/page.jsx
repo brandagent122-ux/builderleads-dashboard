@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { getStats, getTopLeads } from '@/lib/supabase'
 
 export default function CommandCenter() {
@@ -8,6 +9,7 @@ export default function CommandCenter() {
   const [loading, setLoading] = useState(true)
   const [seenIds, setSeenIds] = useState(new Set())
   const [lastVisit, setLastVisit] = useState(null)
+  const router = useRouter()
 
   useEffect(() => {
     const stored = localStorage.getItem('bl_seen_leads')
@@ -16,9 +18,28 @@ export default function CommandCenter() {
     if (storedVisit) setLastVisit(new Date(storedVisit))
 
     async function load() {
-      const [s, l] = await Promise.all([getStats(), getTopLeads(10)])
+      const [s, l] = await Promise.all([getStats(), getTopLeads(20)])
+
+      // Deduplicate by address, keep highest score
+      const byAddr = {}
+      l.forEach(lead => {
+        if (!byAddr[lead.address] || lead.score > byAddr[lead.address].score) {
+          byAddr[lead.address] = { ...lead, permitCount: 1 }
+        } else {
+          byAddr[lead.address].permitCount = (byAddr[lead.address].permitCount || 1) + 1
+        }
+      })
+      // Count permits per address
+      l.forEach(lead => {
+        if (byAddr[lead.address]) {
+          byAddr[lead.address].permitCount = l.filter(x => x.address === lead.address).length
+        }
+      })
+
+      const deduped = Object.values(byAddr).sort((a, b) => b.score - a.score).slice(0, 10)
+
       setStats(s)
-      setLeads(l)
+      setLeads(deduped)
       setLoading(false)
     }
     load()
@@ -40,7 +61,7 @@ export default function CommandCenter() {
     return new Date(lead.created_at) > lastVisit
   }
 
-  if (loading) return <Loading />
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="text-accent animate-pulse text-sm">Loading intel...</div></div>
 
   const newCount = leads.filter(l => isNew(l)).length
 
@@ -54,7 +75,7 @@ export default function CommandCenter() {
         <div className="flex items-center gap-4">
           {newCount > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/15 border border-accent/30">
-              <span className="text-sm font-semibold text-accent">{newCount} new lead{newCount > 1 ? 's' : ''}</span>
+              <span className="text-sm font-semibold text-accent">{newCount} new</span>
               <span className="text-xs text-accent/70">since last visit</span>
             </div>
           )}
@@ -77,14 +98,40 @@ export default function CommandCenter() {
           <h2 className="text-lg font-semibold text-white">Top leads by score</h2>
           <span className="text-xs bg-accent/15 text-accent px-2.5 py-1 rounded-full font-semibold">TOP {leads.length}</span>
         </div>
-        <a href="/leads" className="text-sm text-accent hover:text-accent-light transition-colors">
-          View all &rarr;
-        </a>
+        <a href="/leads" className="text-sm text-accent hover:text-accent-light transition-colors">View all &rarr;</a>
       </div>
 
       <div className="flex flex-col gap-3">
         {leads.map((lead, i) => (
-          <LeadCard key={lead.id} lead={lead} rank={i + 1} isNew={isNew(lead)} onView={() => markSeen(lead.id)} />
+          <div key={lead.id} onClick={() => { markSeen(lead.id); router.push(`/leads/${lead.id}`) }}
+            className="lead-row"
+            style={isNew(lead) ? { borderColor: '#ff6b35', boxShadow: '0 0 12px rgba(255,107,53,0.15)' } : {}}>
+
+            <div className="text-sm text-slate-650 w-6 text-center font-mono">{i + 1}</div>
+
+            <ScoreRing score={lead.score} />
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">{lead.address}</span>
+                {isNew(lead) && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-accent text-navy-950 animate-pulse">NEW</span>}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {lead.beds > 0 && `${lead.beds} bed / `}{lead.baths > 0 && `${lead.baths} bath / `}{lead.sqft > 0 && `${lead.sqft.toLocaleString()} sqft / `}{lead.year_built > 0 && `Built ${lead.year_built} / `}{lead.assessor_value > 0 && `$${(lead.assessor_value / 1e6).toFixed(1)}M`}
+              </div>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <DamageBadge damage={lead.dins_damage} />
+                <span className="badge badge-permit">{lead.permit_type}</span>
+                <span className="badge badge-stage">{lead.permit_stage}</span>
+                {lead.permitCount > 1 && <span className="badge badge-stack">{lead.permitCount} permits</span>}
+                {lead.created_at && <span className="text-[10px] text-slate-650 ml-1">{timeAgo(lead.created_at)}</span>}
+              </div>
+            </div>
+
+            <div className="flex gap-2 flex-shrink-0">
+              <span className="btn-primary text-xs">Details</span>
+            </div>
+          </div>
         ))}
       </div>
 
@@ -112,6 +159,21 @@ export default function CommandCenter() {
   )
 }
 
+function ScoreRing({ score }) {
+  const color = score >= 85 ? '#ff6b35' : score >= 75 ? '#ff8f65' : score >= 50 ? '#fbbf24' : '#6b7280'
+  const c = 2 * Math.PI * 20
+  const o = c - (score / 100) * c
+  return (
+    <div className="relative w-[52px] h-[52px] flex-shrink-0">
+      <svg width="52" height="52" viewBox="0 0 52 52" className="score-ring">
+        <circle cx="26" cy="26" r="20" fill="none" stroke="#1e2030" strokeWidth="3.5" />
+        <circle cx="26" cy="26" r="20" fill="none" stroke={color} strokeWidth="3.5" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center text-base font-bold" style={{ color }}>{score}</div>
+    </div>
+  )
+}
+
 function StatCard({ label, value, highlight, color }) {
   return (
     <div className={`stat-card ${highlight ? 'highlight' : ''}`}>
@@ -121,77 +183,11 @@ function StatCard({ label, value, highlight, color }) {
   )
 }
 
-function LeadCard({ lead, rank, isNew, onView }) {
-  const scoreColor = lead.score >= 85 ? '#ff6b35' : lead.score >= 75 ? '#ff8f65' : lead.score >= 50 ? '#fbbf24' : '#6b7280'
-  const circumference = 2 * Math.PI * 20
-  const offset = circumference - (lead.score / 100) * circumference
-
-  return (
-    <a href={`/leads/${lead.id}`} onClick={onView}
-      className="lead-row"
-      style={isNew ? { borderColor: '#ff6b35', boxShadow: '0 0 12px rgba(255,107,53,0.15)' } : {}}>
-
-      <div className="text-sm text-slate-650 w-6 text-center font-mono">{rank}</div>
-
-      <div className="relative w-[52px] h-[52px] flex-shrink-0">
-        <svg width="52" height="52" viewBox="0 0 52 52" className="score-ring">
-          <circle cx="26" cy="26" r="20" fill="none" stroke="#1e2030" strokeWidth="3.5" />
-          <circle cx="26" cy="26" r="20" fill="none" stroke={scoreColor} strokeWidth="3.5"
-            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center text-base font-bold" style={{ color: scoreColor }}>
-          {lead.score}
-        </div>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">{lead.address}</span>
-          {isNew && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-accent text-navy-950 animate-pulse">NEW</span>
-          )}
-        </div>
-        <div className="text-xs text-slate-500 mt-1">
-          {lead.beds > 0 && `${lead.beds} bed / `}{lead.baths > 0 && `${lead.baths} bath / `}{lead.sqft > 0 && `${lead.sqft.toLocaleString()} sqft / `}{lead.year_built > 0 && `Built ${lead.year_built} / `}{lead.assessor_value > 0 && `$${(lead.assessor_value / 1000000).toFixed(1)}M`}
-        </div>
-        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          <DamageBadge damage={lead.dins_damage} />
-          <span className="badge badge-permit">{lead.permit_type}</span>
-          <span className="badge badge-stage">{lead.permit_stage}</span>
-          {lead.created_at && (
-            <span className="text-[10px] text-slate-650 ml-1">{timeAgo(lead.created_at)}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-2 flex-shrink-0">
-        <span className="btn-primary text-xs">Details</span>
-      </div>
-    </a>
-  )
-}
-
 function DamageBadge({ damage }) {
   if (!damage || damage === 'Unknown') return null
-  const cls = damage.includes('Destroyed') ? 'badge-destroyed'
-    : damage.includes('Major') ? 'badge-major'
-    : damage.includes('Minor') ? 'badge-minor'
-    : damage.includes('Affected') ? 'badge-affected'
-    : 'badge-nodamage'
-  const label = damage.includes('Destroyed') ? 'Destroyed'
-    : damage.includes('Major') ? 'Major'
-    : damage.includes('Minor') ? 'Minor'
-    : damage.includes('Affected') ? 'Affected'
-    : 'No damage'
+  const cls = damage.includes('Destroyed') ? 'badge-destroyed' : damage.includes('Major') ? 'badge-major' : damage.includes('Minor') ? 'badge-minor' : damage.includes('Affected') ? 'badge-affected' : 'badge-nodamage'
+  const label = damage.includes('Destroyed') ? 'Destroyed' : damage.includes('Major') ? 'Major' : damage.includes('Minor') ? 'Minor' : damage.includes('Affected') ? 'Affected' : 'No damage'
   return <span className={`badge ${cls}`}>{label}</span>
-}
-
-function Loading() {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-accent animate-pulse text-sm">Loading intel...</div>
-    </div>
-  )
 }
 
 function formatMoney(val) {
@@ -203,15 +199,11 @@ function formatMoney(val) {
 
 function timeAgo(dateStr) {
   try {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = now - date
-    const mins = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
+    const d = new Date(dateStr), now = new Date(), diff = now - d
+    const mins = Math.floor(diff / 60000), hours = Math.floor(diff / 3600000), days = Math.floor(diff / 86400000)
     if (mins < 60) return `${mins}m ago`
     if (hours < 24) return `${hours}h ago`
     if (days < 7) return `${days}d ago`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch { return '' }
 }
