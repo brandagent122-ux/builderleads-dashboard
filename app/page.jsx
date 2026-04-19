@@ -6,18 +6,43 @@ export default function CommandCenter() {
   const [stats, setStats] = useState(null)
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
+  const [seenIds, setSeenIds] = useState(new Set())
+  const [lastVisit, setLastVisit] = useState(null)
 
   useEffect(() => {
+    const stored = localStorage.getItem('bl_seen_leads')
+    const storedVisit = localStorage.getItem('bl_last_visit')
+    if (stored) setSeenIds(new Set(JSON.parse(stored)))
+    if (storedVisit) setLastVisit(new Date(storedVisit))
+
     async function load() {
-      const [s, l] = await Promise.all([getStats(), getTopLeads(8)])
+      const [s, l] = await Promise.all([getStats(), getTopLeads(10)])
       setStats(s)
       setLeads(l)
       setLoading(false)
     }
     load()
+
+    localStorage.setItem('bl_last_visit', new Date().toISOString())
   }, [])
 
+  function markSeen(id) {
+    const updated = new Set(seenIds)
+    updated.add(id)
+    setSeenIds(updated)
+    localStorage.setItem('bl_seen_leads', JSON.stringify([...updated]))
+  }
+
+  function isNew(lead) {
+    if (seenIds.has(lead.id)) return false
+    if (!lastVisit) return false
+    if (!lead.created_at) return true
+    return new Date(lead.created_at) > lastVisit
+  }
+
   if (loading) return <Loading />
+
+  const newCount = leads.filter(l => isNew(l)).length
 
   return (
     <div className="p-8">
@@ -26,9 +51,17 @@ export default function CommandCenter() {
           <h1 className="text-2xl font-bold text-white tracking-tight">Command Center</h1>
           <p className="text-sm text-slate-500 mt-1">Palisades fire rebuild intelligence</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-navy-600 bg-navy-800">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-slate-400">Live data</span>
+        <div className="flex items-center gap-4">
+          {newCount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/15 border border-accent/30">
+              <span className="text-sm font-semibold text-accent">{newCount} new lead{newCount > 1 ? 's' : ''}</span>
+              <span className="text-xs text-accent/70">since last visit</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-navy-600 bg-navy-800">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs text-slate-400">Live data</span>
+          </div>
         </div>
       </div>
 
@@ -51,7 +84,7 @@ export default function CommandCenter() {
 
       <div className="flex flex-col gap-3">
         {leads.map((lead, i) => (
-          <LeadCard key={lead.id} lead={lead} rank={i + 1} />
+          <LeadCard key={lead.id} lead={lead} rank={i + 1} isNew={isNew(lead)} onView={() => markSeen(lead.id)} />
         ))}
       </div>
 
@@ -88,13 +121,16 @@ function StatCard({ label, value, highlight, color }) {
   )
 }
 
-function LeadCard({ lead, rank }) {
+function LeadCard({ lead, rank, isNew, onView }) {
   const scoreColor = lead.score >= 85 ? '#ff6b35' : lead.score >= 75 ? '#ff8f65' : lead.score >= 50 ? '#fbbf24' : '#6b7280'
   const circumference = 2 * Math.PI * 20
   const offset = circumference - (lead.score / 100) * circumference
 
   return (
-    <a href={`/leads/${lead.id}`} className="lead-row">
+    <a href={`/leads/${lead.id}`} onClick={onView}
+      className="lead-row"
+      style={isNew ? { borderColor: '#ff6b35', boxShadow: '0 0 12px rgba(255,107,53,0.15)' } : {}}>
+
       <div className="text-sm text-slate-650 w-6 text-center font-mono">{rank}</div>
 
       <div className="relative w-[52px] h-[52px] flex-shrink-0">
@@ -109,14 +145,22 @@ function LeadCard({ lead, rank }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-white">{lead.address}</div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-white">{lead.address}</span>
+          {isNew && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-accent text-navy-950 animate-pulse">NEW</span>
+          )}
+        </div>
         <div className="text-xs text-slate-500 mt-1">
           {lead.beds > 0 && `${lead.beds} bed / `}{lead.baths > 0 && `${lead.baths} bath / `}{lead.sqft > 0 && `${lead.sqft.toLocaleString()} sqft / `}{lead.year_built > 0 && `Built ${lead.year_built} / `}{lead.assessor_value > 0 && `$${(lead.assessor_value / 1000000).toFixed(1)}M`}
         </div>
-        <div className="flex gap-1.5 mt-2 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
           <DamageBadge damage={lead.dins_damage} />
           <span className="badge badge-permit">{lead.permit_type}</span>
           <span className="badge badge-stage">{lead.permit_stage}</span>
+          {lead.created_at && (
+            <span className="text-[10px] text-slate-650 ml-1">{timeAgo(lead.created_at)}</span>
+          )}
         </div>
       </div>
 
@@ -155,4 +199,19 @@ function formatMoney(val) {
   if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`
   if (val >= 1e3) return `$${(val / 1e3).toFixed(0)}K`
   return `$${val}`
+}
+
+function timeAgo(dateStr) {
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now - date
+    const mins = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    if (mins < 60) return `${mins}m ago`
+    if (hours < 24) return `${hours}h ago`
+    if (days < 7) return `${days}d ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch { return '' }
 }
