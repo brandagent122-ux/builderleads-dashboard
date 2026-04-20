@@ -17,7 +17,7 @@ function getRadius(score) {
   return 4
 }
 
-export default function LeafletMap({ leads, onSelect }) {
+export default function LeafletMap({ leads, onSelect, mapboxToken }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -34,7 +34,7 @@ export default function LeafletMap({ leads, onSelect }) {
       wheelPxPerZoomLevel: 120,
     })
 
-    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`, {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
       maxZoom: 19,
       tileSize: 512,
       zoomOffset: -1,

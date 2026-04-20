@@ -78,7 +78,7 @@ export default function MapPage() {
           <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
         ) : (
           <div className="card-raised overflow-hidden" style={{ height: '100%', borderRadius: 'var(--r-card, 22px)' }}>
-            <LeafletMap leads={filtered} onSelect={handleSelect} />
+            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} />
           </div>
         )}
 
