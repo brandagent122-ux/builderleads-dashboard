@@ -62,6 +62,8 @@ export default function LeadDetailPage() {
             <span className="badge badge-stage">{lead.permit_stage}</span>
             {totalPermits > 1 && <span className="badge badge-stack">{totalPermits} permits stacked</span>}
             {lead.is_perimeter_edge && <span className="badge badge-fire">Perimeter edge</span>}
+            {lead.owner_occupied && <span className="badge badge-permit">Owner-occupied</span>}
+            {lead.contractor_name === 'None listed' && <span className="badge badge-fire">No contractor</span>}
           </div>
         </div>
         <div className="text-center">
@@ -79,6 +81,7 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
+      {/* Row 1: Property Details + Fire Damage */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Property details</h3>
@@ -89,6 +92,8 @@ export default function LeadDetailPage() {
             <Detail label="Year built" value={lead.year_built || '-'} />
             <Detail label="Assessed value" value={lead.assessor_value ? `$${(lead.assessor_value / 1e6).toFixed(2)}M` : '-'} />
             <Detail label="APN" value={lead.apn || '-'} />
+            <Detail label="Lot size" value={lead.lot_size_sqft ? `${lead.lot_size_sqft.toLocaleString()} sqft` : '-'} />
+            <Detail label="Owner occupied" value={lead.owner_occupied === true ? 'Yes' : lead.owner_occupied === false ? 'No' : '-'} />
           </div>
         </div>
 
@@ -105,6 +110,60 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
+      {/* Row 2: Zoning & Buildability + Neighborhood Activity */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Zoning & buildability</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Detail label="Zone code" value={lead.zoning || '-'} />
+            <Detail label="Zone description" value={lead.zoning_desc || '-'} />
+            <Detail label="Max FAR" value={lead.max_far != null ? lead.max_far : '-'} />
+            <Detail label="Max buildable" value={lead.max_far && lead.lot_size_sqft ? `${Math.round(lead.max_far * lead.lot_size_sqft).toLocaleString()} sqft` : '-'} />
+            <Detail label="Hillside zone" value={lead.hillside_zone === true ? 'Yes' : lead.hillside_zone === false ? 'No' : '-'} />
+            <Detail label="Historic zone" value={lead.historic_zone === true ? 'Yes' : lead.historic_zone === false ? 'No' : '-'} />
+            <Detail label="Flood zone" value={lead.flood_zone || '-'} />
+            <Detail label="Flood risk" value={lead.flood_zone_desc || (lead.flood_zone === 'X' ? 'Minimal risk' : lead.flood_zone === 'AE' ? 'High risk' : '-')} />
+          </div>
+        </div>
+
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Neighborhood activity</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-slate-650 mb-1">Permits within 500ft</div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-white">{lead.neighbor_permits_500ft ?? '-'}</span>
+                {lead.neighbor_permits_500ft >= 5 && (
+                  <span className="badge badge-permit" style={{ fontSize: '9px', padding: '2px 6px' }}>Active zone</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-650 mb-1">Same street permits</div>
+              <div className="text-2xl font-bold text-white">{lead.street_permit_count ?? '-'}</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs text-slate-650 mb-1">Block status</div>
+              <div className="text-sm text-white font-medium">
+                {lead.neighbor_permits_500ft >= 10 ? 'Active rebuild zone' :
+                 lead.neighbor_permits_500ft >= 5 ? 'Moderate activity' :
+                 lead.neighbor_permits_500ft >= 1 ? 'Some activity' :
+                 lead.neighbor_permits_500ft === 0 ? 'No nearby permits' : '-'}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
+            <h4 className="text-xs text-slate-650 mb-3 uppercase tracking-wider font-mono">Contractor on permit</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <Detail label="Contractor" value={lead.contractor_name || '-'} />
+              <Detail label="License #" value={lead.contractor_license || '-'} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Permit Timeline */}
       <div className="card p-5 mb-6">
         <h3 className="text-sm font-semibold text-white mb-4">Permit timeline</h3>
         <div className="grid grid-cols-4 gap-4">
@@ -139,6 +198,7 @@ export default function LeadDetailPage() {
         )}
       </div>
 
+      {/* Permit Stack */}
       {lead.stackedPermits && lead.stackedPermits.length > 0 && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-4">
@@ -163,6 +223,41 @@ export default function LeadDetailPage() {
         </div>
       )}
 
+      {/* Inspection History */}
+      {lead.inspections && lead.inspections.length > 0 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4">
+            Inspection history
+            <span className="ml-2 text-xs bg-[var(--sky-wash)] text-[var(--sky)] px-2 py-0.5 rounded-full font-semibold">{lead.inspections.length} inspections</span>
+          </h3>
+          <div className="overflow-hidden rounded-lg border border-[var(--line)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[var(--card-sunk)]">
+                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Type</th>
+                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Date</th>
+                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Result</th>
+                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Inspector</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lead.inspections.map((insp, i) => (
+                  <tr key={i} className="border-t border-[var(--line)]">
+                    <td className="px-4 py-2.5 text-white font-medium">{insp.inspection_type || '-'}</td>
+                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">{formatDate(insp.inspection_date)}</td>
+                    <td className="px-4 py-2.5">
+                      <InspectionResult result={insp.result} />
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-500 text-xs">{insp.inspector || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* AI Reasoning */}
       {lead.reasoning && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-3">AI score reasoning</h3>
@@ -170,6 +265,7 @@ export default function LeadDetailPage() {
         </div>
       )}
 
+      {/* Permit Description */}
       {lead.permit_description && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-3">Permit description</h3>
@@ -177,6 +273,7 @@ export default function LeadDetailPage() {
         </div>
       )}
 
+      {/* Draft Outreach */}
       {lead.drafts && lead.drafts.length > 0 && (
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-white mb-4">Draft outreach ({lead.drafts.length})</h3>
@@ -192,6 +289,22 @@ export default function LeadDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function InspectionResult({ result }) {
+  if (!result) return <span className="text-slate-500">-</span>
+  const r = result.toUpperCase()
+  const isPassed = r.includes('PASS') || r.includes('APPROVED') || r.includes('OK')
+  const isFailed = r.includes('FAIL') || r.includes('CORRECTION') || r.includes('REJECT')
+  return (
+    <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
+      isPassed ? 'bg-[var(--moss-wash)] text-[var(--moss)]' :
+      isFailed ? 'bg-[var(--ruby-wash)] text-[var(--ruby)]' :
+      'bg-[var(--amber-wash)] text-[var(--amber)]'
+    }`}>
+      {result}
+    </span>
   )
 }
 
