@@ -34,12 +34,21 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
       wheelPxPerZoomLevel: 120,
     })
 
-    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
-      maxZoom: 19,
-      tileSize: 512,
-      zoomOffset: -1,
-      attribution: '',
-    }).addTo(map)
+    if (mapboxToken) {
+      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
+        maxZoom: 19,
+        tileSize: 512,
+        zoomOffset: -1,
+        attribution: '',
+      }).addTo(map)
+    } else {
+      // Fallback to dark CartoDB tiles if no Mapbox token
+      console.warn('[LeafletMap] No Mapbox token, using CartoDB dark tiles')
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '',
+      }).addTo(map)
+    }
 
     mapInstanceRef.current = map
 
@@ -47,7 +56,7 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
       map.remove()
       mapInstanceRef.current = null
     }
-  }, [])
+  }, [mapboxToken])
 
   useEffect(() => {
     const map = mapInstanceRef.current
