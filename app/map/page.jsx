@@ -1,13 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getAllLeads } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
 
-const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false, loading: () => (
-  <div className="skeleton" style={{ height: 'calc(100vh - 240px)', borderRadius: 'var(--r-card, 22px)' }} />
-)})
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
+  ssr: false,
+  loading: () => <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
+})
 
-const SCORE_FILTERS = [
+const FILTERS = [
   { label: 'ALL', min: 0, max: 100 },
   { label: '90+', min: 90, max: 100 },
   { label: '75+', min: 75, max: 100 },
@@ -30,9 +31,18 @@ export default function MapPage() {
     load()
   }, [])
 
-  const filter = SCORE_FILTERS[activeFilter]
-  const filtered = leads.filter(l => l.score >= filter.min && l.score <= filter.max)
+  const handleSelect = useCallback((lead) => setSelectedLead(lead), [])
+
+  const f = FILTERS[activeFilter]
+  const filtered = leads.filter(l => l.score >= f.min && l.score <= f.max)
   const totalValue = filtered.reduce((sum, l) => sum + (l.assessor_value || 0), 0)
+
+  function getColor(score) {
+    if (score >= 85) return '#FF7A3D'
+    if (score >= 75) return '#FF9A6A'
+    if (score >= 50) return '#FBBF24'
+    return '#555560'
+  }
 
   return (
     <div className="px-2">
@@ -40,23 +50,23 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink-0 tracking-tight">Map View</h1>
           <p className="font-mono text-[12px] text-ink-2 mt-1 tracking-wider uppercase">
-            {filtered.length} LEADS {activeFilter > 0 ? `\u00B7 SCORE ${filter.label}` : '\u00B7 ALL SCORES'} \u00B7 ${(totalValue / 1e9).toFixed(1)}B VALUE
+            {filtered.length} LEADS {activeFilter > 0 && `\u00B7 SCORE ${f.label}`} \u00B7 ${(totalValue / 1e9).toFixed(1)}B VALUE
           </p>
         </div>
       </div>
 
       <div className="card-raised p-2 flex gap-2 mb-4" style={{ borderRadius: 16 }}>
-        {SCORE_FILTERS.map((f, i) => {
-          const count = leads.filter(l => l.score >= f.min && l.score <= f.max).length
+        {FILTERS.map((filter, i) => {
+          const count = leads.filter(l => l.score >= filter.min && l.score <= filter.max).length
           return (
             <button key={i} onClick={() => { setActiveFilter(i); setSelectedLead(null) }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-mono font-medium transition-all ${
                 activeFilter === i
-                  ? 'bg-[var(--card,#212126)] text-ember shadow-[var(--shadow-raised-sm)]'
+                  ? 'bg-[var(--card,#212126)] text-ember shadow-[4px_4px_10px_rgba(0,0,0,0.35),_-3px_-3px_8px_rgba(255,255,255,0.025)]'
                   : 'text-ink-3 hover:text-ink-1'
               }`}>
               {i > 0 && <div className="w-2.5 h-2.5 rounded-full" style={{ background: i === 1 ? '#FF7A3D' : i === 2 ? '#FF9A6A' : i === 3 ? '#FBBF24' : '#555560' }} />}
-              {f.label}
+              {filter.label}
               <span className="text-[10px] text-ink-3">({count})</span>
             </button>
           )
@@ -67,36 +77,40 @@ export default function MapPage() {
         {loading ? (
           <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
         ) : (
-          <LeafletMap leads={filtered} selectedLead={selectedLead} onSelect={setSelectedLead} />
+          <div className="card-raised overflow-hidden" style={{ height: '100%', borderRadius: 'var(--r-card, 22px)' }}>
+            <LeafletMap leads={filtered} onSelect={handleSelect} />
+          </div>
         )}
 
         {selectedLead && (
-          <div className="absolute bottom-4 left-4 z-[1000] w-[340px]" style={{ animation: 'slideUp 0.2s ease-out' }}>
-            <div className="card-raised p-4" style={{ borderRadius: 18, border: '1px solid rgba(255,122,61,0.15)' }}>
+          <div className="absolute bottom-4 left-4 z-[1000] w-[360px]" style={{ animation: 'slideUp 0.25s ease-out' }}>
+            <div className="card-raised p-5" style={{ borderRadius: 18, border: '1px solid rgba(255,122,61,0.15)' }}>
               <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="text-[15px] font-semibold text-ink-0">{selectedLead.address}</div>
-                  <div className="font-mono text-[11px] text-ink-2 mt-1 tracking-wider">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[16px] font-semibold text-ink-0 leading-tight">{selectedLead.address}</div>
+                  <div className="font-mono text-[11px] text-ink-2 mt-1.5 tracking-wider">
                     {selectedLead.beds > 0 && `${selectedLead.beds}BD `}{selectedLead.baths > 0 && `${selectedLead.baths}BA `}{selectedLead.sqft > 0 && `${selectedLead.sqft.toLocaleString()}SF`}
                     {selectedLead.assessor_value > 0 && ` \u00B7 $${(selectedLead.assessor_value / 1e6).toFixed(1)}M`}
+                    {selectedLead.year_built > 0 && ` \u00B7 ${selectedLead.year_built}`}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-mono text-sm font-bold"
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center font-mono text-[15px] font-bold"
                     style={{ border: `2px solid ${getColor(selectedLead.score)}`, color: getColor(selectedLead.score) }}>
                     {selectedLead.score}
                   </div>
-                  <button onClick={() => setSelectedLead(null)} className="text-ink-3 hover:text-ink-1 p-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <button onClick={() => setSelectedLead(null)} className="text-ink-3 hover:text-ink-1 p-1 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
               </div>
-              <div className="flex gap-1.5 mb-3 flex-wrap">
+              <div className="flex gap-1.5 mb-4 flex-wrap">
                 <DamageTag damage={selectedLead.dins_damage} />
                 <span className="tag tag-permit">{selectedLead.permit_type}</span>
                 <span className="tag tag-stage">{selectedLead.permit_stage}</span>
               </div>
-              <a href={`/leads/${selectedLead.id}`} className="btn-ember w-full text-center block text-[12px] py-2.5">
+              <a href={`/leads/${selectedLead.id}`}
+                className="btn-ember w-full text-center block text-[12px] py-2.5 rounded-xl no-underline">
                 View full details
               </a>
             </div>
@@ -133,19 +147,12 @@ export default function MapPage() {
         .leaflet-control-zoom a { background: #212126 !important; color: #B8B8BF !important; border: none !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 16px !important; }
         .leaflet-control-zoom a:hover { background: #26262B !important; color: #FFFFFF !important; }
         .leaflet-control-zoom a:last-child { border-bottom: none !important; }
-        .leaflet-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
-        .leaflet-tooltip-top::before { display: none !important; }
+        .leaflet-tooltip, .clean-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+        .leaflet-tooltip-top::before, .clean-tooltip::before { display: none !important; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   )
-}
-
-function getColor(score) {
-  if (score >= 85) return '#FF7A3D'
-  if (score >= 75) return '#FF9A6A'
-  if (score >= 50) return '#FBBF24'
-  return '#555560'
 }
 
 function DamageTag({ damage }) {

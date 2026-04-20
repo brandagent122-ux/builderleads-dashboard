@@ -11,13 +11,13 @@ function getColor(score) {
 }
 
 function getRadius(score) {
-  if (score >= 85) return 7
-  if (score >= 75) return 6
-  if (score >= 50) return 5
+  if (score >= 85) return 8
+  if (score >= 75) return 7
+  if (score >= 50) return 6
   return 4
 }
 
-export default function LeafletMap({ leads, selectedLead, onSelect }) {
+export default function LeafletMap({ leads, onSelect }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -34,8 +34,11 @@ export default function LeafletMap({ leads, selectedLead, onSelect }) {
       wheelPxPerZoomLevel: 120,
     })
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`, {
       maxZoom: 19,
+      tileSize: 512,
+      zoomOffset: -1,
+      attribution: '',
     }).addTo(map)
 
     mapInstanceRef.current = map
@@ -50,11 +53,9 @@ export default function LeafletMap({ leads, selectedLead, onSelect }) {
     const map = mapInstanceRef.current
     if (!map) return
 
-    // Clear old markers
     markersRef.current.forEach(m => map.removeLayer(m))
     markersRef.current = []
 
-    // Add new markers
     leads.forEach(lead => {
       const color = getColor(lead.score)
       const radius = getRadius(lead.score)
@@ -64,15 +65,14 @@ export default function LeafletMap({ leads, selectedLead, onSelect }) {
         fillColor: color,
         fillOpacity: 0.85,
         color: color,
-        weight: 1.5,
+        weight: 2,
         opacity: 0.4,
       })
 
-      marker.bindTooltip(`<div style="background:#212126;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:4px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;color:${color};text-align:center">${lead.score}</div>`, {
-        direction: 'top',
-        offset: [0, -8],
-        className: 'score-tooltip-custom',
-      })
+      marker.bindTooltip(
+        `<div style="background:#212126;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);font-family:JetBrains Mono,monospace;font-size:12px;font-weight:700;color:${color};text-align:center;min-width:32px">${lead.score}</div>`,
+        { direction: 'top', offset: [0, -10], className: 'clean-tooltip' }
+      )
 
       marker.on('click', () => onSelect(lead))
       marker.addTo(map)
