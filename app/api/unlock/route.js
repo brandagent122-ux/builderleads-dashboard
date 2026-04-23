@@ -7,7 +7,6 @@ const adminSupabase = createClient(
 )
 
 const TRACERFY_KEY = process.env.TRACERFY_API_KEY
-const TRACERFY_URL = 'https://app.tracerfy.com/v1/api/instant-trace/'
 
 export async function POST(request) {
   const { lead_id, address, city, state, user_id } = await request.json()
@@ -43,48 +42,71 @@ export async function POST(request) {
     return NextResponse.json({ error: 'No unlock credits remaining' }, { status: 403 })
   }
 
-  // Call Tracerfy Instant Trace
-  try {
-    const resp = await fetch(TRACERFY_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TRACERFY_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        address: address,
-        city: city || 'Pacific Palisades',
-        state: state || 'CA',
-        find_owner: true,
-      }),
-    })
+  // Try multiple possible Tracerfy endpoints
+  const urls = [
+    'https://app.tracerfy.com/api/v1/instant-trace/',
+    'https://app.tracerfy.com/v1/api/instant-trace/',
+    'https://api.tracerfy.com/v1/instant-trace/',
+    'https://app.fastappend.com/v1/api/instant-trace/',
+  ]
 
-    const data = await resp.json()
+  let data = null
+  let lastError = ''
 
-    if (!resp.ok) {
-      return NextResponse.json({ error: data.detail || 'Tracerfy error' }, { status: resp.status })
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TRACERFY_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: address,
+          city: city || 'Pacific Palisades',
+          state: state || 'CA',
+          find_owner: true,
+        }),
+      })
+
+      const text = await resp.text()
+
+      if (resp.ok && !text.startsWith('<!')) {
+        try {
+          data = JSON.parse(text)
+          break
+        } catch {
+          lastError = `${url} returned invalid JSON`
+        }
+      } else {
+        lastError = `${url} returned ${resp.status}`
+      }
+    } catch (err) {
+      lastError = `${url} failed: ${err.message}`
     }
-
-    // Record the unlock (NOT storing contact data permanently)
-    await adminSupabase.from('unlocks').insert({
-      user_id,
-      lead_id,
-      credit_charged: 1,
-    })
-
-    // Increment user's unlock count
-    await adminSupabase.from('profiles').update({
-      contact_unlocks: (profile.contact_unlocks || 0) + 1,
-    }).eq('id', user_id)
-
-    // Return contact data to display (NOT stored in our DB)
-    return NextResponse.json({
-      success: true,
-      contact: data,
-      credits_remaining: profile.max_unlocks - (profile.contact_unlocks || 0) - 1,
-    })
-
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to reach Tracerfy: ' + err.message }, { status: 500 })
   }
+
+  if (!data) {
+    return NextResponse.json({
+      error: 'Could not reach Tracerfy. Contact support@tracerfy.com for the correct API endpoint.',
+      debug: lastError,
+    }, { status: 500 })
+  }
+
+  // Record the unlock
+  await adminSupabase.from('unlocks').insert({
+    user_id,
+    lead_id,
+    credit_charged: 1,
+  })
+
+  await adminSupabase.from('profiles').update({
+    contact_unlocks: (profile.contact_unlocks || 0) + 1,
+  }).eq('id', user_id)
+
+  return NextResponse.json({
+    success: true,
+    contact: data,
+    credits_remaining: profile.max_unlocks - (profile.contact_unlocks || 0) - 1,
+  })
 }
