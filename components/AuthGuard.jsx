@@ -1,15 +1,17 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase, getProfile } from '@/lib/supabase'
 import SidebarNav from '@/components/SidebarNav'
 
 export default function AuthGuard({ children }) {
   const [status, setStatus] = useState('loading')
-  const [profile, setProfile] = useState(null)
   const pathname = usePathname()
+  const checkedRef = useRef(false)
 
   useEffect(() => {
+    if (checkedRef.current && status === 'ready') return
+
     async function check() {
       const { data: { session } } = await supabase.auth.getSession()
 
@@ -18,56 +20,48 @@ export default function AuthGuard({ children }) {
         return
       }
 
-      const p = await getProfile(session.user.id)
-      setProfile(p)
-
-      if (p && !p.tos_accepted_at && pathname !== '/tos') {
-        setStatus('needs-tos')
-        return
+      if (!checkedRef.current) {
+        const p = await getProfile(session.user.id)
+        if (p && !p.tos_accepted_at && pathname !== '/tos') {
+          setStatus('needs-tos')
+          return
+        }
       }
 
+      checkedRef.current = true
       setStatus('ready')
     }
     check()
+  }, [pathname])
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        window.location.href = '/'
-      }
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        checkedRef.current = false
         setStatus('no-auth')
       }
     })
-
     return () => subscription.unsubscribe()
-  }, [pathname])
+  }, [])
 
-  // Login and TOS pages render without shell
-  if (pathname === '/login') return children
-  if (pathname === '/tos') return children
+  if (pathname === '/login' || pathname === '/tos') return children
 
-  // Loading
   if (status === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page, #141416)' }}>
-        <div className="font-mono text-[12px] text-ink-3">Loading...</div>
-      </div>
+      <div style={{ minHeight: '100vh', background: 'var(--page, #141416)' }} />
     )
   }
 
-  // Not logged in
   if (status === 'no-auth') {
     if (typeof window !== 'undefined') window.location.href = '/login'
-    return null
+    return <div style={{ minHeight: '100vh', background: 'var(--page, #141416)' }} />
   }
 
-  // Needs TOS
   if (status === 'needs-tos') {
     if (typeof window !== 'undefined') window.location.href = '/tos'
-    return null
+    return <div style={{ minHeight: '100vh', background: 'var(--page, #141416)' }} />
   }
 
-  // Authenticated - show full layout
   return (
     <div className="stage flex">
       <aside className="w-[232px] flex flex-col p-3 flex-shrink-0">
