@@ -7,7 +7,7 @@ const adminSupabase = createClient(
 )
 
 const TRACERFY_KEY = process.env.TRACERFY_API_KEY
-const TRACERFY_URL = 'https://app.fastappend.com/v1/api/instant-trace/'
+const TRACERFY_URL = 'https://app.tracerfy.com/v1/api/instant-trace/'
 
 export async function POST(request) {
   const { lead_id, address, city, state, user_id } = await request.json()
