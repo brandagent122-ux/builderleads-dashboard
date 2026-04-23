@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import UnlockButton from '@/components/UnlockButton'
 import { useParams } from 'next/navigation'
 import { getLeadDetail, updateDraftStatus } from '@/lib/supabase'
 
@@ -210,7 +211,7 @@ export default function LeadDetailPage() {
               <div className="w-2 h-2 rounded-full bg-accent" />
               <div className="flex-1">
                 <span className="text-sm text-white font-medium">{lead.permit_type}</span>
-                <span className="text-xs text-slate-500 ml-2">#{lead.permit_number}</span>
+                <span className="text-xs text-slate-650 ml-2">#{lead.permit_number}</span>
               </div>
               <span className="badge badge-stage">{lead.permit_stage}</span>
               <span className="text-xs text-slate-500">{formatDate(lead.permit_issued_at)}</span>
@@ -272,6 +273,12 @@ export default function LeadDetailPage() {
           <p className="text-sm text-slate-400 leading-relaxed">{lead.permit_description}</p>
         </div>
       )}
+
+      {/* Contact Unlock */}
+      <div className="card p-5 mb-6">
+        <h3 className="text-sm font-semibold text-white mb-3">Owner Contact Info</h3>
+        <UnlockButton leadId={lead.id} address={lead.address} />
+      </div>
 
       {/* Draft Outreach */}
       {lead.drafts && lead.drafts.length > 0 && (
