@@ -17,6 +17,8 @@ export default function AdminPage() {
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newCompany, setNewCompany] = useState('')
+  const [newMaxLeads, setNewMaxLeads] = useState('50')
+  const [newTrade, setNewTrade] = useState('')
   const [creating, setCreating] = useState(false)
   const [message, setMessage] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -45,33 +47,44 @@ export default function AdminPage() {
     setCreating(true)
     setMessage('')
 
-    const { data, error } = await supabase.auth.signUp({
-      email: newEmail,
-      password: newPassword,
-    })
+    try {
+      const resp = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newEmail,
+          password: newPassword,
+          company_name: newCompany || undefined,
+          max_leads: parseInt(newMaxLeads) || 50,
+          trade: newTrade || undefined,
+        }),
+      })
 
-    if (error) {
-      setMessage('Error: ' + error.message)
+      const result = await resp.json()
+
+      if (result.error) {
+        setMessage('Error: ' + result.error)
+        setCreating(false)
+        return
+      }
+
+      setMessage('Account created for ' + newEmail)
+      setNewEmail('')
+      setNewPassword('')
+      setNewCompany('')
+      setNewMaxLeads('50')
+      setNewTrade('')
       setCreating(false)
-      return
+
+      // Refresh
+      setTimeout(async () => {
+        const updated = await getAllProfiles()
+        setProfiles(updated)
+      }, 1500)
+    } catch (err) {
+      setMessage('Error: ' + err.message)
+      setCreating(false)
     }
-
-    // Update profile with company name if provided
-    if (data?.user?.id && newCompany) {
-      await updateProfile(data.user.id, { company_name: newCompany })
-    }
-
-    setMessage('Account created for ' + newEmail)
-    setNewEmail('')
-    setNewPassword('')
-    setNewCompany('')
-    setCreating(false)
-
-    // Refresh
-    setTimeout(async () => {
-      const updated = await getAllProfiles()
-      setProfiles(updated)
-    }, 1000)
   }
 
   async function handleUpdateTier(userId, tier) {
@@ -203,6 +216,27 @@ export default function AdminPage() {
               placeholder="Company name"
               style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', fontSize: 13, color: '#fff', background: 'var(--card-sunk, #19191D)', outline: 'none' }}
             />
+          </div>
+          <div className="min-w-[100px]" style={{ width: 100 }}>
+            <label className="font-mono text-[10px] text-ink-3 tracking-wider block mb-1">MAX LEADS</label>
+            <input
+              type="number"
+              value={newMaxLeads}
+              onChange={e => setNewMaxLeads(e.target.value)}
+              placeholder="50"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', fontSize: 13, color: '#fff', background: 'var(--card-sunk, #19191D)', outline: 'none' }}
+            />
+          </div>
+          <div className="min-w-[140px]">
+            <label className="font-mono text-[10px] text-ink-3 tracking-wider block mb-1">TRADE</label>
+            <select
+              value={newTrade}
+              onChange={e => setNewTrade(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', fontSize: 13, color: '#fff', background: 'var(--card-sunk, #19191D)', outline: 'none' }}
+            >
+              <option value="">Select trade</option>
+              {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
           <button
             onClick={handleCreateUser}
