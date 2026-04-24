@@ -44,7 +44,7 @@ export default function AuthGuard({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (pathname === '/login' || pathname === '/tos' || pathname.endsWith('/print')) return children
+  if (pathname === '/login' || pathname === '/tos' || pathname === '/privacy' || pathname === '/terms' || pathname.endsWith('/print')) return children
 
   if (status === 'loading') {
     return (

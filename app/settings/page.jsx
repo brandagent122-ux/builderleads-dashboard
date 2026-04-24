@@ -118,6 +118,14 @@ export default function SettingsPage() {
           <p className="text-sm text-slate-500">Need help or want to upgrade your plan? Contact us at <span className="text-accent">freddy@ru4reelz.com</span></p>
         </div>
       )}
+
+      <div className="card p-6 mt-4">
+        <h3 className="text-sm font-semibold text-white mb-4">Legal</h3>
+        <div className="flex gap-6">
+          <a href="/privacy" className="text-sm text-accent hover:underline">Privacy Policy</a>
+          <a href="/terms" className="text-sm text-accent hover:underline">Terms of Service</a>
+        </div>
+      </div>
     </div>
   )
 }

@@ -118,6 +118,10 @@ export default function LoginPage() {
         <div style={{ textAlign: 'center', marginTop: 28, fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-3, #555560)', letterSpacing: '1.5px' }}>
           POWERED BY RU4REELZ
         </div>
+        <div style={{ textAlign: 'center', marginTop: 12, display: 'flex', justifyContent: 'center', gap: 16 }}>
+          <a href="/privacy" style={{ fontSize: 11, color: '#555560', textDecoration: 'none' }}>Privacy Policy</a>
+          <a href="/terms" style={{ fontSize: 11, color: '#555560', textDecoration: 'none' }}>Terms of Service</a>
+        </div>
       </div>
     </div>
   )
