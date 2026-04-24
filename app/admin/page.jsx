@@ -318,9 +318,13 @@ export default function AdminPage() {
                     {profile.role === 'paused' ? 'PAUSED' : profile.role?.toUpperCase()}
                   </span>
                   {profile.tos_accepted_at ? (
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[rgba(34,197,94,0.15)] text-green-400">TOS ACCEPTED</span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[rgba(34,197,94,0.15)] text-green-400" title={`Accepted: ${new Date(profile.tos_accepted_at).toLocaleString()}\nIP: ${profile.tos_ip || 'unknown'}\nVersion: ${profile.tos_version || '1.0'}`}>
+                      ✓ TOS ACCEPTED
+                    </span>
                   ) : (
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[rgba(248,113,113,0.15)] text-red-400">TOS PENDING</span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[rgba(248,113,113,0.15)] text-red-400">
+                      ✗ TOS PENDING
+                    </span>
                   )}
                 </div>
                 <div className="font-mono text-[11px] text-ink-2 flex gap-4 flex-wrap">
@@ -333,6 +337,13 @@ export default function AdminPage() {
                     <span>Zips: {profile.territory_zips.join(', ')}</span>
                   )}
                 </div>
+                {profile.tos_accepted_at && profile.role !== 'admin' && (
+                  <div className="font-mono text-[10px] text-ink-3 mt-1 flex gap-3">
+                    <span>TOS signed: {new Date(profile.tos_accepted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(profile.tos_accepted_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                    {profile.tos_ip && <span>IP: {profile.tos_ip}</span>}
+                    {profile.tos_version && <span>v{profile.tos_version}</span>}
+                  </div>
+                )}
                 {profile.role !== 'admin' && (
                   <div className="flex items-center gap-3 mt-2">
                     <span className="font-mono text-[10px] text-ink-3">PASSWORD:</span>
