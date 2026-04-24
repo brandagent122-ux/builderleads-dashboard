@@ -10,6 +10,7 @@ export default function CommandCenter() {
   const [seenIds, setSeenIds] = useState(new Set())
   const [lastVisit, setLastVisit] = useState(null)
   const [showBrief, setShowBrief] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function CommandCenter() {
     async function load() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
+      setIsAdmin(ctx.isAdmin)
       const ids = ctx.assignedLeadIds
       const [s, l] = await Promise.all([getStats(ids), getTopLeads(20, ids)])
       const byAddr = {}
@@ -85,9 +87,14 @@ export default function CommandCenter() {
             <span className="font-mono text-[11px] text-ember tracking-wider">UPDATE</span>
           </div>
           <p className="text-[14px] text-ink-1 leading-relaxed flex-1">
-            Pipeline ran at <mark>5:00 AM PT</mark>. <mark>{stats.hotLeads} high-priority</mark> leads detected.
-            <mark>{stats.destroyed} properties</mark> confirmed destroyed.
-            {stats.pendingDrafts > 0 && <> <mark>{stats.pendingDrafts} outreach drafts</mark> pending review.</>}
+            {isAdmin ? (
+              <>Pipeline ran at <mark>5:00 AM PT</mark>. <mark>{stats.hotLeads} high-priority</mark> leads detected.
+              <mark>{stats.destroyed} properties</mark> confirmed destroyed.
+              {stats.pendingDrafts > 0 && <> <mark>{stats.pendingDrafts} outreach drafts</mark> pending review.</>}</>
+            ) : (
+              <>Your leads were refreshed at <mark>5:00 AM PT</mark>. Scores and permit data updated.
+              <mark>{stats.hotLeads} of {stats.totalLeads}</mark> leads are high-priority.</>
+            )}
           </p>
           <button onClick={() => setShowBrief(false)} className="text-ink-3 hover:text-ink-1 transition-colors flex-shrink-0 p-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
