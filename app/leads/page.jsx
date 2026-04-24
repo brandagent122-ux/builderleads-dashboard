@@ -28,6 +28,7 @@ export default function AllLeadsPage() {
   const [saved, setSaved] = useState(new Set())
   const [sortCol, setSortCol] = useState('score')
   const [sortDir, setSortDir] = useState('desc')
+  const [visibleCount, setVisibleCount] = useState(50)
   const router = useRouter()
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function AllLeadsPage() {
       if (dinsFilter) filtered = filtered.filter(r => r.dins_damage === dinsFilter)
       setLeads(filtered)
       setSelected(new Set())
+      setVisibleCount(50)
       setLoading(false)
     }
     setLoading(true)
@@ -97,7 +99,8 @@ export default function AllLeadsPage() {
     a.download = `builderleads_${trade}_${new Date().toISOString().split('T')[0]}.csv`; a.click()
   }
 
-  const displayLeads = sortedLeads().slice(0, 100)
+  const displayLeads = sortedLeads().slice(0, visibleCount)
+  const totalSorted = sortedLeads().length
   const arrow = (col) => sortCol === col ? (sortDir === 'desc' ? ' \u25BC' : ' \u25B2') : ''
 
   return (
@@ -214,7 +217,28 @@ export default function AllLeadsPage() {
             ))}
           </div>
 
-          {leads.length > 100 && <div className="text-center py-4 font-mono text-[12px] text-ink-2">SHOWING 100 OF {leads.length} LEADS</div>}
+          {totalSorted > visibleCount && (
+            <div className="text-center py-5">
+              <div className="font-mono text-[11px] text-ink-3 mb-3">
+                SHOWING {visibleCount} OF {totalSorted} LEADS
+              </div>
+              <button
+                onClick={() => setVisibleCount(v => v + 50)}
+                style={{
+                  padding: '10px 32px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                  border: '1px solid rgba(255,122,61,0.3)', cursor: 'pointer',
+                  background: 'rgba(255,122,61,0.08)', color: '#FF7A3D',
+                }}
+              >
+                Load 50 more
+              </button>
+            </div>
+          )}
+          {totalSorted > 0 && totalSorted <= visibleCount && (
+            <div className="text-center py-4 font-mono text-[11px] text-ink-3">
+              SHOWING ALL {totalSorted} LEADS
+            </div>
+          )}
           {leads.length === 0 && <div className="text-center py-12 text-ink-3">No leads match your filters</div>}
         </>
       )}

@@ -421,6 +421,7 @@ function ManageLeadsPanel({ userId, onUpdate }) {
   const [scoreFilter, setScoreFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [visibleAvail, setVisibleAvail] = useState(30)
 
   const SCORE_FILTERS = [
     { key: 'all', label: 'All', min: 0, max: 100 },
@@ -442,11 +443,12 @@ function ManageLeadsPanel({ userId, onUpdate }) {
 
   async function searchAvailable() {
     const f = SCORE_FILTERS.find(s => s.key === scoreFilter) || SCORE_FILTERS[0]
-    const params = new URLSearchParams({ min_score: f.min, max_score: f.max, limit: 50 })
+    const params = new URLSearchParams({ min_score: f.min, max_score: f.max, limit: 200 })
     if (search) params.set('search', search)
     const resp = await fetch(`/api/admin/leads/search?${params}`)
     const data = await resp.json()
     setAvailable(data.leads || [])
+    setVisibleAvail(30)
   }
 
   async function handleAssign() {
@@ -593,8 +595,8 @@ function ManageLeadsPanel({ userId, onUpdate }) {
       </div>
 
       {/* Available leads */}
-      <div style={{ maxHeight: 250, overflowY: 'auto' }}>
-        {available.filter(l => !assignedIds.has(l.id)).map(lead => (
+      <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+        {available.filter(l => !assignedIds.has(l.id)).slice(0, visibleAvail).map(lead => (
           <div key={lead.id}
             onClick={() => toggleSelect(lead.id)}
             style={{
@@ -617,6 +619,14 @@ function ManageLeadsPanel({ userId, onUpdate }) {
         ))}
         {available.filter(l => !assignedIds.has(l.id)).length === 0 && (
           <div className="text-[12px] text-ink-3 py-3 text-center">No matching leads found</div>
+        )}
+        {available.filter(l => !assignedIds.has(l.id)).length > visibleAvail && (
+          <div className="text-center py-3">
+            <button onClick={() => setVisibleAvail(v => v + 30)}
+              style={{ padding: '6px 16px', borderRadius: 8, fontSize: 10, fontWeight: 600, border: '1px solid rgba(255,122,61,0.2)', cursor: 'pointer', background: 'rgba(255,122,61,0.06)', color: '#FF7A3D' }}>
+              Load 30 more
+            </button>
+          </div>
         )}
       </div>
 

@@ -11,7 +11,7 @@ export async function GET(request) {
   const search = searchParams.get('search') || ''
   const minScore = parseInt(searchParams.get('min_score')) || 0
   const maxScore = parseInt(searchParams.get('max_score')) || 100
-  const limit = parseInt(searchParams.get('limit')) || 50
+  const limit = parseInt(searchParams.get('limit')) || 200
 
   // Get scores in range
   let scoreQuery = adminSupabase
