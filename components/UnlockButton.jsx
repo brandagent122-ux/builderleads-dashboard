@@ -4,10 +4,11 @@ import { supabase, getSession } from '@/lib/supabase'
 
 export default function UnlockButton({ leadId, address }) {
   const [status, setStatus] = useState('idle')
-  const [contact, setContact] = useState(null)
+  const [persons, setPersons] = useState(null)
   const [error, setError] = useState('')
   const [userId, setUserId] = useState(null)
   const [alreadyUnlocked, setAlreadyUnlocked] = useState(false)
+  const [creditsRemaining, setCreditsRemaining] = useState(null)
 
   useEffect(() => {
     async function init() {
@@ -35,7 +36,9 @@ export default function UnlockButton({ leadId, address }) {
     const streetAddr = parts[0] || address
     const city = parts[1] || 'Pacific Palisades'
     const stateZip = parts[2] || 'CA'
-    const state = stateZip.split(' ')[0] || 'CA'
+    const stateParts = stateZip.split(' ')
+    const state = stateParts[0] || 'CA'
+    const zip = stateParts[1] || ''
 
     const resp = await fetch('/api/unlock', {
       method: 'POST',
@@ -45,6 +48,7 @@ export default function UnlockButton({ leadId, address }) {
         address: streetAddr,
         city,
         state,
+        zip: zip || undefined,
         user_id: userId,
       }),
     })
@@ -57,12 +61,13 @@ export default function UnlockButton({ leadId, address }) {
       return
     }
 
-    setContact(result.contact)
+    setPersons(result.persons || [])
+    setCreditsRemaining(result.credits_remaining)
     setStatus('unlocked')
     setAlreadyUnlocked(true)
   }
 
-  if (alreadyUnlocked && !contact) {
+  if (alreadyUnlocked && !persons) {
     return (
       <div style={{
         padding: 16, borderRadius: 14,
@@ -75,8 +80,7 @@ export default function UnlockButton({ leadId, address }) {
     )
   }
 
-  if (status === 'unlocked' && contact) {
-    const people = contact.people || contact.results || [contact]
+  if (status === 'unlocked' && persons) {
     return (
       <div style={{
         padding: 20, borderRadius: 16,
@@ -85,44 +89,94 @@ export default function UnlockButton({ leadId, address }) {
       }}>
         <div className="flex items-center justify-between mb-3">
           <div className="font-mono text-[10px] text-green-400 tracking-wider">CONTACT INFO (NOT STORED)</div>
-          <div className="font-mono text-[10px] text-ink-3">{contact.credits_remaining != null ? `${contact.credits_remaining} credits left` : ''}</div>
+          {creditsRemaining != null && (
+            <div className="font-mono text-[10px] text-ink-3">{creditsRemaining} credits left</div>
+          )}
         </div>
-        {people.map((person, i) => (
-          <div key={i} className="mb-4 last:mb-0">
-            {person.name && (
-              <div className="text-[16px] font-semibold text-ink-0 mb-2">
-                {person.first_name || ''} {person.last_name || person.name || ''}
-              </div>
+
+        {persons.length === 0 && (
+          <div className="text-[13px] text-ink-2">No contact data found for this address.</div>
+        )}
+
+        {persons.map((person, i) => (
+          <div key={i} className="mb-5 last:mb-0">
+            {/* Name */}
+            {person.full_name && (
+              <div className="text-[16px] font-semibold text-ink-0 mb-1">{person.full_name}</div>
             )}
+
+            {/* Tags row */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {person.property_owner && (
+                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
+                  style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80' }}>OWNER</span>
+              )}
+              {person.deceased && (
+                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
+                  style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>DECEASED</span>
+              )}
+              {person.litigator && (
+                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
+                  style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>LITIGATOR</span>
+              )}
+              {person.age && (
+                <span className="font-mono text-[9px] tracking-wider text-ink-3">AGE {person.age}</span>
+              )}
+            </div>
+
+            {/* Phones */}
             {person.phones && person.phones.length > 0 && (
-              <div className="mb-2">
-                <div className="font-mono text-[10px] text-ink-3 mb-1">PHONES</div>
+              <div className="mb-3">
+                <div className="font-mono text-[10px] text-ink-3 mb-1.5">PHONES</div>
                 {person.phones.map((p, j) => (
                   <div key={j} className="flex items-center gap-3 mb-1">
-                    <span className="text-[14px] text-ink-0 font-mono">{p.phone || p.number || p}</span>
-                    {p.type && <span className="font-mono text-[10px] text-ink-3">{p.type}</span>}
-                    {p.dnc && <span className="font-mono text-[10px] text-red-400 px-1.5 py-0.5 rounded bg-[rgba(248,113,113,0.1)]">DNC</span>}
+                    <a href={`tel:${p.number}`} className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
+                      {formatPhone(p.number)}
+                    </a>
+                    {p.type && (
+                      <span className="font-mono text-[9px] tracking-wider text-ink-3 px-1.5 py-0.5 rounded"
+                        style={{ background: 'var(--card-sunk)' }}>{p.type}</span>
+                    )}
+                    {p.carrier && (
+                      <span className="font-mono text-[9px] text-ink-3">{p.carrier}</span>
+                    )}
+                    {p.dnc && (
+                      <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>DNC</span>
+                    )}
                   </div>
                 ))}
               </div>
             )}
+
+            {/* Emails */}
             {person.emails && person.emails.length > 0 && (
-              <div className="mb-2">
-                <div className="font-mono text-[10px] text-ink-3 mb-1">EMAILS</div>
+              <div className="mb-3">
+                <div className="font-mono text-[10px] text-ink-3 mb-1.5">EMAILS</div>
                 {person.emails.map((e, j) => (
-                  <div key={j} className="text-[14px] text-ink-0 font-mono mb-1">{e.email || e}</div>
+                  <a key={j} href={`mailto:${e.email}`}
+                    className="text-[14px] text-ink-0 font-mono mb-1 block hover:text-accent transition-colors">
+                    {e.email}
+                  </a>
                 ))}
               </div>
             )}
-            {(person.address || person.mailing_address) && (
+
+            {/* Mailing address */}
+            {person.mailing_address && person.mailing_address.street && (
               <div>
                 <div className="font-mono text-[10px] text-ink-3 mb-1">MAILING ADDRESS</div>
-                <div className="text-[13px] text-ink-2">{person.address || person.mailing_address}</div>
+                <div className="text-[13px] text-ink-2">
+                  {person.mailing_address.street}, {person.mailing_address.city}, {person.mailing_address.state} {person.mailing_address.zip}
+                </div>
               </div>
             )}
           </div>
         ))}
-        <div className="mt-3 text-[11px] text-ink-3">This data is provided by a third-party service. Not stored by this platform.</div>
+
+        <div className="mt-4 pt-3 text-[11px] text-ink-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          This data is provided by a third-party service and is not stored by BuilderLeads.
+        </div>
       </div>
     )
   }
@@ -138,16 +192,21 @@ export default function UnlockButton({ leadId, address }) {
         {status === 'loading' ? (
           <span className="flex items-center justify-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-            Unlocking contact info...
+            Looking up owner...
           </span>
         ) : (
           <span className="flex items-center justify-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Unlock Contact Info (1 credit)
+            Unlock Contact Info (5 credits)
           </span>
         )}
       </button>
       {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
     </div>
   )
+}
+
+function formatPhone(num) {
+  if (!num || num.length !== 10) return num
+  return `(${num.slice(0,3)}) ${num.slice(3,6)}-${num.slice(6)}`
 }
