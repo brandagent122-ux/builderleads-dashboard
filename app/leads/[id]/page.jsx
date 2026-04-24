@@ -52,8 +52,12 @@ export default function LeadDetailPage() {
   const totalPermits = 1 + (lead.stackedPermits?.length || 0)
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-8 max-w-6xl">
       <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors mb-4 inline-block">&larr; Back to all leads</a>
+
+      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+        {/* Main content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
 
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -302,11 +306,6 @@ export default function LeadDetailPage() {
         <UnlockButton leadId={lead.id} address={lead.address} />
       </div>
 
-      {/* Notes */}
-      <div className="mb-6">
-        <NotesPanel leadId={lead.id} address={lead.address} />
-      </div>
-
       {/* Draft Outreach */}
       {lead.drafts && lead.drafts.length > 0 && (
         <div className="mb-8">
@@ -322,6 +321,15 @@ export default function LeadDetailPage() {
           </div>
         </div>
       )}
+
+        </div>{/* end left column */}
+
+        {/* Right column - Notes sidebar */}
+        <div style={{ width: 280, flexShrink: 0, position: 'sticky', top: 20 }}>
+          <NotesPanel leadId={lead.id} address={lead.address} />
+        </div>
+
+      </div>{/* end flex row */}
     </div>
   )
 }

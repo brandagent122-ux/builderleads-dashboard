@@ -60,3 +60,21 @@ export async function DELETE(request) {
 
   return NextResponse.json({ deleted: true })
 }
+
+export async function PATCH(request) {
+  const user = await getAuthUser(request)
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { id, note } = await request.json()
+  if (!id || !note?.trim()) {
+    return NextResponse.json({ error: 'id and note required' }, { status: 400 })
+  }
+
+  await adminSupabase
+    .from('lead_notes')
+    .update({ note: note.trim(), updated_at: new Date().toISOString() })
+    .eq('id', parseInt(id))
+    .eq('user_id', user.id)
+
+  return NextResponse.json({ updated: true })
+}
