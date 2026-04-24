@@ -3,18 +3,26 @@ import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
 
 const CACHE_KEY = 'bl_contact_cache'
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 function getCachedContact(leadId) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
-    return cache[leadId] || null
+    const entry = cache[leadId]
+    if (!entry) return null
+    if (entry.expires && Date.now() > entry.expires) {
+      delete cache[leadId]
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+      return null
+    }
+    return entry.persons || entry
   } catch { return null }
 }
 
 function setCachedContact(leadId, persons) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
-    cache[leadId] = persons
+    cache[leadId] = { persons, expires: Date.now() + CACHE_TTL_MS }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
   } catch {}
 }
@@ -51,7 +59,6 @@ const CheckIcon = () => (
 
 function CopyRow({ text, children }) {
   const [copied, setCopied] = useState(false)
-
   function handleCopy(e) {
     e.preventDefault()
     navigator.clipboard.writeText(text).then(() => {
@@ -59,7 +66,6 @@ function CopyRow({ text, children }) {
       setTimeout(() => setCopied(false), 1500)
     })
   }
-
   return (
     <div onClick={handleCopy} className="copy-row" style={{
       position: 'relative', cursor: 'pointer', padding: '6px 8px', margin: '0 -8px',
@@ -88,15 +94,12 @@ function CopyRow({ text, children }) {
 function PersonCard({ person, colorIndex }) {
   const color = AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]
   const initials = getInitials(person.full_name)
-  const okPhones = (person.phones || []).filter(p => !p.dnc)
-  const dncPhones = (person.phones || []).filter(p => p.dnc)
 
   return (
     <div style={{
       background: 'var(--card, #212126)', borderRadius: 12, padding: 16,
       border: '1px solid rgba(255,255,255,0.03)',
     }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
@@ -110,22 +113,10 @@ function PersonCard({ person, colorIndex }) {
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
             {person.property_owner && (
-              <span className="font-mono" style={{
-                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
-                background: '#4ade8015', color: '#4ade80', border: '1px solid #4ade8020',
-              }}>OWNER</span>
-            )}
-            {person.deceased && (
-              <span className="font-mono" style={{
-                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
-                background: '#f8717115', color: '#f87171', border: '1px solid #f8717120',
-              }}>DECEASED</span>
+              <span className="font-mono" style={{ fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4, background: '#4ade8015', color: '#4ade80', border: '1px solid #4ade8020' }}>OWNER</span>
             )}
             {person.litigator && (
-              <span className="font-mono" style={{
-                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
-                background: '#fbbf2415', color: '#fbbf24', border: '1px solid #fbbf2420',
-              }}>LITIGATOR</span>
+              <span className="font-mono" style={{ fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4, background: '#fbbf2415', color: '#fbbf24', border: '1px solid #fbbf2420' }}>LITIGATOR</span>
             )}
             {person.age && (
               <span className="font-mono" style={{ fontSize: 9, letterSpacing: 1, color: '#555560' }}>AGE {person.age}</span>
@@ -134,44 +125,26 @@ function PersonCard({ person, colorIndex }) {
         </div>
       </div>
 
-      {/* Two column grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {/* Phones */}
         {(person.phones && person.phones.length > 0) && (
           <div style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 10, padding: 12 }}>
-            <div className="font-mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#555560', marginBottom: 10 }}>PHONES</div>
-            {okPhones.map((p, j) => (
-              <CopyRow key={`ok-${j}`} text={formatPhone(p.number)}>
+            <div className="font-mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#555560', marginBottom: 10 }}>PHONES (CLEAN)</div>
+            {person.phones.map((p, j) => (
+              <CopyRow key={j} text={formatPhone(p.number)}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div className="font-mono" style={{ fontSize: 14, color: '#f0f0f0' }}>{formatPhone(p.number)}</div>
-                    <div className="font-mono" style={{ fontSize: 9, color: '#555560', marginTop: 2 }}>{p.type || 'Phone'}</div>
+                    <div className="font-mono" style={{ fontSize: 9, color: '#555560', marginTop: 2 }}>
+                      {p.type || 'Phone'}{p.carrier ? ` \u00B7 ${p.carrier}` : ''}
+                    </div>
                   </div>
-                  <span className="font-mono" style={{
-                    fontSize: 8, letterSpacing: 1, padding: '2px 6px', borderRadius: 4,
-                    background: '#4ade8015', color: '#4ade80',
-                  }}>OK</span>
+                  <span className="font-mono" style={{ fontSize: 8, letterSpacing: 1, padding: '2px 6px', borderRadius: 4, background: '#4ade8015', color: '#4ade80' }}>CLEAN</span>
                 </div>
               </CopyRow>
-            ))}
-            {dncPhones.map((p, j) => (
-              <div key={`dnc-${j}`} style={{ padding: '6px 8px', margin: '0 -8px', borderRadius: 8, opacity: 0.45 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div className="font-mono" style={{ fontSize: 14, color: '#f0f0f0' }}>{formatPhone(p.number)}</div>
-                    <div className="font-mono" style={{ fontSize: 9, color: '#555560', marginTop: 2 }}>{p.type || 'Phone'}</div>
-                  </div>
-                  <span className="font-mono" style={{
-                    fontSize: 8, letterSpacing: 1, padding: '2px 6px', borderRadius: 4,
-                    background: '#f8717115', color: '#f87171', border: '1px solid #f8717120',
-                  }}>DNC</span>
-                </div>
-              </div>
             ))}
           </div>
         )}
 
-        {/* Emails + Mailing */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {person.emails && person.emails.length > 0 && (
             <div style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 10, padding: 12, flex: 1 }}>
@@ -196,9 +169,8 @@ function PersonCard({ person, colorIndex }) {
           )}
         </div>
 
-        {/* If no phones, show emails full width */}
         {(!person.phones || person.phones.length === 0) && (!person.emails || person.emails.length === 0) && (
-          <div style={{ gridColumn: '1 / -1', fontSize: 13, color: '#555560', padding: 12 }}>No contact data available.</div>
+          <div style={{ gridColumn: '1 / -1', fontSize: 13, color: '#555560', padding: 12 }}>No clean contact data available.</div>
         )}
       </div>
     </div>
@@ -212,6 +184,7 @@ export default function UnlockButton({ leadId, address }) {
   const [userId, setUserId] = useState(null)
   const [alreadyUnlocked, setAlreadyUnlocked] = useState(false)
   const [creditsRemaining, setCreditsRemaining] = useState(null)
+  const [dncFiltered, setDncFiltered] = useState(0)
 
   useEffect(() => {
     async function init() {
@@ -254,13 +227,8 @@ export default function UnlockButton({ leadId, address }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lead_id: leadId,
-        address: streetAddr,
-        city,
-        state,
-        zip: zip || undefined,
-        user_id: userId,
-        refetch: isRefetch || undefined,
+        lead_id: leadId, address: streetAddr, city, state,
+        zip: zip || undefined, user_id: userId, refetch: isRefetch || undefined,
       }),
     })
 
@@ -275,12 +243,13 @@ export default function UnlockButton({ leadId, address }) {
     const contactPersons = result.persons || []
     setPersons(contactPersons)
     setCreditsRemaining(result.credits_remaining)
+    setDncFiltered(result.dnc_filtered || 0)
     setStatus('unlocked')
     setAlreadyUnlocked(true)
     setCachedContact(leadId, contactPersons)
   }
 
-  // Previously unlocked, no cache
+  // Previously unlocked, no cache (expired or cleared)
   if (alreadyUnlocked && !persons && status !== 'loading') {
     return (
       <div>
@@ -292,7 +261,7 @@ export default function UnlockButton({ leadId, address }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#555560' }}></div>
             <span className="font-mono" style={{ fontSize: 10, letterSpacing: 2, color: '#555560', fontWeight: 600 }}>PREVIOUSLY UNLOCKED</span>
           </div>
-          <div style={{ fontSize: 13, color: '#777' }}>Contact data is not stored on our servers. Re-fetch from Tracerfy to view again.</div>
+          <div style={{ fontSize: 13, color: '#777' }}>Contact data expires after 24 hours. Re-fetch to view again.</div>
         </div>
         <button onClick={() => doUnlock(true)} className="btn-ghost w-full"
           style={{ padding: 12, borderRadius: 14, fontSize: 13, fontWeight: 600 }}>
@@ -300,7 +269,7 @@ export default function UnlockButton({ leadId, address }) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
-            Re-fetch Contact Info (free)
+            Re-fetch Contact Info (5 credits)
           </span>
         </button>
         {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{error}</div>}
@@ -320,16 +289,11 @@ export default function UnlockButton({ leadId, address }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></div>
             <span className="font-mono" style={{ fontSize: 10, letterSpacing: 2, color: '#4ade80', fontWeight: 600 }}>CONTACT INFO</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {creditsRemaining != null && (
-              <span className="font-mono" style={{ fontSize: 10, color: '#555560' }}>{creditsRemaining} credits left</span>
-            )}
-            <span className="font-mono" style={{ fontSize: 10, color: '#555560' }}>NOT STORED ON SERVER</span>
-          </div>
+          <span className="font-mono" style={{ fontSize: 10, color: '#555560' }}>NOT STORED ON SERVER</span>
         </div>
 
         {persons.length === 0 && (
-          <div style={{ fontSize: 13, color: '#555560', padding: 12 }}>No contact data found for this address.</div>
+          <div style={{ fontSize: 13, color: '#555560', padding: 12 }}>No clean contact data found for this address.</div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -339,7 +303,8 @@ export default function UnlockButton({ leadId, address }) {
         </div>
 
         <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: '#555560' }}>
-          This data is provided by a third-party service and is not stored by BuilderLeads.
+          {dncFiltered > 0 && <div style={{ marginBottom: 4 }}>{dncFiltered} DNC number{dncFiltered > 1 ? 's' : ''} filtered out. Only clean, callable contacts shown.</div>}
+          Contact data provided by a third-party service. Not stored by BuilderLeads. Auto-expires in 24 hours.
         </div>
       </div>
     )
@@ -368,7 +333,7 @@ export default function UnlockButton({ leadId, address }) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          Unlock Contact Info (2 credits)
+          Unlock Contact Info (5 credits)
         </span>
       </button>
       {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{error}</div>}
