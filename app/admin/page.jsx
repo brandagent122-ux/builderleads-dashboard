@@ -750,6 +750,8 @@ function ActivityPanel({ userId }) {
     contact_unlocked: { icon: '🔓', label: 'Unlocked contact', color: '#4ade80' },
     contact_refetched: { icon: '🔄', label: 'Re-fetched contact', color: '#2dd4bf' },
     csv_exported: { icon: '📥', label: 'CSV export', color: '#f472b6' },
+    map_viewed: { icon: '🗺', label: 'Viewed map', color: '#38bdf8' },
+    map_lead_clicked: { icon: '📍', label: 'Clicked pin on map', color: '#fb923c' },
     login: { icon: '🔑', label: 'Logged in', color: '#60a5fa' },
   }
 

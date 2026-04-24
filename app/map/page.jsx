@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { getAllLeads, getUserContext } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity'
 import dynamic from 'next/dynamic'
 
 const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
@@ -30,11 +31,15 @@ export default function MapPage() {
       const data = await getAllLeads({}, ids)
       setLeads(data.filter(l => l.latitude && l.longitude))
       setLoading(false)
+      logActivity('map_viewed', `${data.length} leads on map`)
     }
     load()
   }, [])
 
-  const handleSelect = useCallback((lead) => setSelectedLead(lead), [])
+  const handleSelect = useCallback((lead) => {
+    setSelectedLead(lead)
+    if (lead) logActivity('map_lead_clicked', lead.address, lead.id)
+  }, [])
 
   const f = FILTERS[activeFilter]
   const filtered = leads.filter(l => l.score >= f.min && l.score <= f.max)
