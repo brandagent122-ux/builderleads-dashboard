@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [managingLeads, setManagingLeads] = useState(null)
+  const [showPassword, setShowPassword] = useState(null)
   const [tab, setTab] = useState('all')
 
   useEffect(() => {
@@ -49,9 +50,13 @@ export default function AdminPage() {
     setMessage('')
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const resp = await fetch('/api/admin/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
         body: JSON.stringify({
           email: newEmail,
           password: newPassword,
@@ -134,6 +139,26 @@ export default function AdminPage() {
     await updateProfile(userId, { territory_zips: zipArray })
     setProfiles(profiles.map(p => p.id === userId ? { ...p, territory_zips: zipArray } : p))
     flash('Territory updated')
+  }
+
+  async function handleResetPassword(userId) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const resp = await fetch('/api/admin/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
+      body: JSON.stringify({ user_id: userId }),
+    })
+    const result = await resp.json()
+    if (result.error) {
+      flash('Error: ' + result.error)
+      return
+    }
+    setProfiles(profiles.map(p => p.id === userId ? { ...p, temp_password: result.password } : p))
+    setShowPassword(userId)
+    flash('Password reset to: ' + result.password)
   }
 
   function flash(msg) {
@@ -307,6 +332,28 @@ export default function AdminPage() {
                     <span>Zips: {profile.territory_zips.join(', ')}</span>
                   )}
                 </div>
+                {profile.role !== 'admin' && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="font-mono text-[10px] text-ink-3">PASSWORD:</span>
+                    {showPassword === profile.id ? (
+                      <span className="font-mono text-[11px] text-ink-1" style={{ background: 'var(--card-sunk, #19191D)', padding: '2px 8px', borderRadius: 6 }}>
+                        {profile.temp_password || 'Not recorded'}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-ink-3">{'*'.repeat(8)}</span>
+                    )}
+                    <button
+                      onClick={() => setShowPassword(showPassword === profile.id ? null : profile.id)}
+                      style={{ fontSize: 10, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}>
+                      {showPassword === profile.id ? 'Hide' : 'Show'}
+                    </button>
+                    <button
+                      onClick={() => handleResetPassword(profile.id)}
+                      style={{ fontSize: 10, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '2px 8px', borderRadius: 6 }}>
+                      Reset password
+                    </button>
+                  </div>
+                )}
               </div>
 
               {profile.role !== 'admin' && (

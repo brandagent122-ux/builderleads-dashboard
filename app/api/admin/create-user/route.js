@@ -34,7 +34,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'User created but no ID returned' }, { status: 500 })
   }
 
-  const profileUpdate = { role: 'client', tier: 'starter' }
+  const profileUpdate = { role: 'client', tier: 'starter', temp_password: password }
   if (company_name) profileUpdate.company_name = company_name
   if (max_leads) profileUpdate.max_leads = parseInt(max_leads)
   if (trade) profileUpdate.trade = trade
