@@ -348,7 +348,7 @@ export default function AdminPage() {
                   <div className="flex items-center gap-3 mt-2">
                     <span className="font-mono text-[10px] text-ink-3">PASSWORD:</span>
                     {showPassword === profile.id ? (
-                      <span className="font-mono text-[11px] text-ink-1" style={{ background: 'var(--card-sunk, #19191D)', padding: '2px 8px', borderRadius: 6 }}>
+                      <span className="font-mono text-[11px] text-ink-1" style={{ background: 'var(--card-sunk, #19191D)', padding: '2px 8px', borderRadius: 6, userSelect: 'all' }}>
                         {profile.temp_password || 'Not recorded'}
                       </span>
                     ) : (
@@ -359,6 +359,10 @@ export default function AdminPage() {
                       style={{ fontSize: 10, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}>
                       {showPassword === profile.id ? 'Hide' : 'Show'}
                     </button>
+                    {showPassword === profile.id && profile.temp_password && (
+                      <CopyBtn text={profile.temp_password} label="Copy password" />
+                    )}
+                    <CopyBtn text={profile.email} label="Copy email" />
                     <button
                       onClick={() => handleResetPassword(profile.id)}
                       style={{ fontSize: 10, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '2px 8px', borderRadius: 6 }}>
@@ -855,5 +859,27 @@ function ActivityPanel({ userId }) {
         </div>
       )}
     </div>
+  )
+}
+
+function CopyBtn({ text, label }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        })
+      }}
+      style={{
+        fontSize: 10, border: 'none', cursor: 'pointer', fontFamily: 'monospace',
+        padding: '2px 8px', borderRadius: 6,
+        background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(96,165,250,0.1)',
+        color: copied ? '#4ade80' : '#60a5fa',
+        transition: 'all 0.2s',
+      }}>
+      {copied ? '✓ Copied' : label}
+    </button>
   )
 }
