@@ -77,7 +77,7 @@ export default function NotesPanel({ leadId, address }) {
 
   return (
     <div style={{
-      background: 'var(--card, #212126)', borderRadius: 16, padding: 16,
+      background: 'var(--card, #212126)', borderRadius: 14, padding: 12,
       border: '1px solid rgba(255,255,255,0.04)',
     }}>
       <div className="font-mono text-[10px] tracking-wider mb-3" style={{ color: '#8B8B96' }}>

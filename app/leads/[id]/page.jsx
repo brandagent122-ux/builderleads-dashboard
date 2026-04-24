@@ -55,7 +55,7 @@ export default function LeadDetailPage() {
     <div className="p-8 max-w-6xl">
       <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors mb-4 inline-block">&larr; Back to all leads</a>
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -325,7 +325,7 @@ export default function LeadDetailPage() {
         </div>{/* end left column */}
 
         {/* Right column - Notes sidebar */}
-        <div style={{ width: 280, flexShrink: 0, position: 'sticky', top: 20 }}>
+        <div style={{ width: 200, flexShrink: 0, position: 'sticky', top: 20 }}>
           <NotesPanel leadId={lead.id} address={lead.address} />
         </div>
 
