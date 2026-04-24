@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getAllLeads, getUserContext } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity'
 
 const TRADE_PRESETS = {
   all: { label: 'All trades', permit_types: null, dins: null, stages: null },
@@ -98,6 +99,7 @@ export default function AllLeadsPage() {
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
     a.download = `builderleads_${trade}_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+    logActivity('csv_exported', `${toExport.length} leads exported`)
   }
 
   const displayLeads = sortedLeads().slice(0, visibleCount)

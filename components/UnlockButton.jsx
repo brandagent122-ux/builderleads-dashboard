@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity'
 
 const CACHE_KEY = 'bl_contact_cache'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -251,6 +252,7 @@ export default function UnlockButton({ leadId, address }) {
     setStatus('unlocked')
     setAlreadyUnlocked(true)
     setCachedContact(leadId, contactPersons)
+    logActivity(isRefetch ? 'contact_refetched' : 'contact_unlocked', address, leadId)
   }
 
   // Previously unlocked, no cache (expired or cleared)

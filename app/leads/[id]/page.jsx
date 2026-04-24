@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import UnlockButton from '@/components/UnlockButton'
 import { useParams } from 'next/navigation'
 import { getLeadDetail, updateDraftStatus, getUserContext } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity'
 
 export default function LeadDetailPage() {
   const params = useParams()
@@ -29,6 +30,7 @@ export default function LeadDetailPage() {
       }
       setLead(data)
       setLoading(false)
+      logActivity('lead_viewed', data.address, parseInt(params.id))
     }
     load()
   }, [params.id])
@@ -37,8 +39,8 @@ export default function LeadDetailPage() {
     const s = localStorage.getItem('bl_saved_leads')
     const set = s ? new Set(JSON.parse(s)) : new Set()
     const id = parseInt(params.id)
-    if (set.has(id)) { set.delete(id); setSaved(false) }
-    else { set.add(id); setSaved(true) }
+    if (set.has(id)) { set.delete(id); setSaved(false); logActivity('lead_unsaved', lead?.address, id) }
+    else { set.add(id); setSaved(true); logActivity('lead_saved', lead?.address, id) }
     localStorage.setItem('bl_saved_leads', JSON.stringify([...set]))
   }
 
@@ -65,7 +67,7 @@ export default function LeadDetailPage() {
               </svg>
             </button>
             <button
-              onClick={() => window.open(`/leads/${params.id}/print`, '_blank')}
+              onClick={() => { window.open(`/leads/${params.id}/print`, '_blank'); logActivity('lead_printed', lead?.address, parseInt(params.id)) }}
               className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors"
               title="Export / Print lead report"
             >

@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [managingLeads, setManagingLeads] = useState(null)
   const [showPassword, setShowPassword] = useState(null)
+  const [viewingActivity, setViewingActivity] = useState(null)
   const [tab, setTab] = useState('all')
 
   useEffect(() => {
@@ -435,9 +436,9 @@ export default function AdminPage() {
 
             {/* Manage Leads button */}
             {profile.role !== 'admin' && (
-              <div className="mt-3">
+              <div className="mt-3 flex gap-2">
                 <button
-                  onClick={() => setManagingLeads(managingLeads === profile.id ? null : profile.id)}
+                  onClick={() => { setManagingLeads(managingLeads === profile.id ? null : profile.id); setViewingActivity(null) }}
                   style={{
                     padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
                     background: managingLeads === profile.id ? 'rgba(255,122,61,0.2)' : 'rgba(255,122,61,0.1)',
@@ -446,12 +447,27 @@ export default function AdminPage() {
                 >
                   {managingLeads === profile.id ? 'Close Lead Manager' : 'Manage Leads'}
                 </button>
+                <button
+                  onClick={() => { setViewingActivity(viewingActivity === profile.id ? null : profile.id); setManagingLeads(null) }}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                    background: viewingActivity === profile.id ? 'rgba(96,165,250,0.2)' : 'rgba(96,165,250,0.1)',
+                    color: '#60a5fa',
+                  }}
+                >
+                  {viewingActivity === profile.id ? 'Close Activity' : 'View Activity'}
+                </button>
               </div>
             )}
 
             {/* Lead Manager Panel */}
             {managingLeads === profile.id && (
               <ManageLeadsPanel userId={profile.id} onUpdate={() => flash('Leads updated')} />
+            )}
+
+            {/* Activity Panel */}
+            {viewingActivity === profile.id && (
+              <ActivityPanel userId={profile.id} />
             )}
           </div>
         ))}
@@ -685,6 +701,78 @@ function ManageLeadsPanel({ userId, onUpdate }) {
             style={{ padding: '8px 20px', borderRadius: 10, fontSize: 12, fontWeight: 600, opacity: busy ? 0.5 : 1 }}>
             Assign {selected.size} lead{selected.size > 1 ? 's' : ''}
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+function ActivityPanel({ userId }) {
+  const [activity, setActivity] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(`/api/admin/activity?user_id=${userId}`, {
+        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+      })
+      const data = await resp.json()
+      setActivity(data.activity || [])
+      setLoading(false)
+    }
+    load()
+  }, [userId])
+
+  const ACTION_LABELS = {
+    lead_viewed: { icon: '👁', label: 'Viewed lead', color: '#60a5fa' },
+    lead_printed: { icon: '🖨', label: 'Printed lead', color: '#a78bfa' },
+    lead_saved: { icon: '⭐', label: 'Saved lead', color: '#fbbf24' },
+    lead_unsaved: { icon: '☆', label: 'Unsaved lead', color: '#555560' },
+    contact_unlocked: { icon: '🔓', label: 'Unlocked contact', color: '#4ade80' },
+    contact_refetched: { icon: '🔄', label: 'Re-fetched contact', color: '#2dd4bf' },
+    csv_exported: { icon: '📥', label: 'CSV export', color: '#f472b6' },
+    login: { icon: '🔑', label: 'Logged in', color: '#60a5fa' },
+  }
+
+  function timeAgo(date) {
+    const now = new Date()
+    const d = new Date(date)
+    const diff = Math.floor((now - d) / 1000)
+    if (diff < 60) return 'just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  if (loading) return <div className="mt-4 text-[12px] text-ink-3">Loading activity...</div>
+
+  return (
+    <div className="mt-4" style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 14, padding: 16 }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-mono text-[10px] text-ink-3 tracking-wider">ACTIVITY LOG ({activity.length})</div>
+      </div>
+
+      {activity.length === 0 ? (
+        <div className="text-[12px] text-ink-3 py-2">No activity recorded yet.</div>
+      ) : (
+        <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+          {activity.map((a, i) => {
+            const config = ACTION_LABELS[a.action] || { icon: '•', label: a.action, color: '#555560' }
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.03)',
+              }}>
+                <span style={{ fontSize: 14, width: 24, textAlign: 'center', flexShrink: 0 }}>{config.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: config.color, fontWeight: 500 }}>{config.label}</div>
+                  {a.details && <div className="font-mono" style={{ fontSize: 10, color: '#555560', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.details}</div>}
+                </div>
+                <span className="font-mono" style={{ fontSize: 10, color: '#555560', flexShrink: 0 }}>{timeAgo(a.created_at)}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
