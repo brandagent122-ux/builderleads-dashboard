@@ -17,12 +17,12 @@ export default function NotesPanel({ leadId, address }) {
 
   async function loadNotes() {
     const h = await getHeaders()
-    const resp = await fetch(`/api/notes?lead_id=${leadId}`, { headers: h })
+    const resp = await fetch(`/api/notes?address=${encodeURIComponent(address)}`, { headers: h })
     const data = await resp.json()
     setNotes(data.notes || [])
   }
 
-  useEffect(() => { loadNotes() }, [leadId])
+  useEffect(() => { loadNotes() }, [leadId, address])
 
   async function handleAdd() {
     if (!newNote.trim() || saving) return
@@ -30,7 +30,7 @@ export default function NotesPanel({ leadId, address }) {
     const h = await getHeaders()
     const resp = await fetch('/api/notes', {
       method: 'POST', headers: h,
-      body: JSON.stringify({ lead_id: leadId, note: newNote.trim() }),
+      body: JSON.stringify({ lead_id: leadId, address, note: newNote.trim() }),
     })
     const data = await resp.json()
     if (data.note) {

@@ -12,16 +12,24 @@ export async function GET(request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
+  const address = searchParams.get('address')
   const leadId = searchParams.get('lead_id')
-  if (!leadId) return NextResponse.json({ error: 'lead_id required' }, { status: 400 })
 
-  const { data } = await adminSupabase
+  if (!address && !leadId) return NextResponse.json({ error: 'address or lead_id required' }, { status: 400 })
+
+  let query = adminSupabase
     .from('lead_notes')
-    .select('id,note,created_at,updated_at')
+    .select('id,note,address,lead_id,created_at,updated_at')
     .eq('user_id', user.id)
-    .eq('lead_id', parseInt(leadId))
     .order('created_at', { ascending: false })
 
+  if (address) {
+    query = query.eq('address', address)
+  } else {
+    query = query.eq('lead_id', parseInt(leadId))
+  }
+
+  const { data } = await query
   return NextResponse.json({ notes: data || [] })
 }
 
@@ -29,36 +37,24 @@ export async function POST(request) {
   const user = await getAuthUser(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  const { lead_id, note } = await request.json()
-  if (!lead_id || !note?.trim()) {
-    return NextResponse.json({ error: 'lead_id and note required' }, { status: 400 })
+  const { lead_id, address, note } = await request.json()
+  if (!note?.trim()) {
+    return NextResponse.json({ error: 'note required' }, { status: 400 })
   }
 
   const { data, error } = await adminSupabase
     .from('lead_notes')
-    .insert({ user_id: user.id, lead_id: parseInt(lead_id), note: note.trim() })
-    .select('id,note,created_at')
+    .insert({
+      user_id: user.id,
+      lead_id: lead_id ? parseInt(lead_id) : null,
+      address: address || null,
+      note: note.trim(),
+    })
+    .select('id,note,address,created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ note: data })
-}
-
-export async function DELETE(request) {
-  const user = await getAuthUser(request)
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-
-  const { searchParams } = new URL(request.url)
-  const noteId = searchParams.get('id')
-  if (!noteId) return NextResponse.json({ error: 'id required' }, { status: 400 })
-
-  await adminSupabase
-    .from('lead_notes')
-    .delete()
-    .eq('id', parseInt(noteId))
-    .eq('user_id', user.id)
-
-  return NextResponse.json({ deleted: true })
 }
 
 export async function PATCH(request) {
@@ -77,4 +73,21 @@ export async function PATCH(request) {
     .eq('user_id', user.id)
 
   return NextResponse.json({ updated: true })
+}
+
+export async function DELETE(request) {
+  const user = await getAuthUser(request)
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const noteId = searchParams.get('id')
+  if (!noteId) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  await adminSupabase
+    .from('lead_notes')
+    .delete()
+    .eq('id', parseInt(noteId))
+    .eq('user_id', user.id)
+
+  return NextResponse.json({ deleted: true })
 }
