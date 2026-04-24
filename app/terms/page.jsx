@@ -12,7 +12,7 @@ export default function TermsPage() {
         background: 'var(--stage, #1B1B1F)',
         boxShadow: '8px 8px 20px rgba(0,0,0,0.5), -6px -6px 16px rgba(255,255,255,0.02)',
       }}>
-        <a href="/login" style={{ fontSize: 12, color: '#FF7A3D', textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}>&larr; Back</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); window.history.back() }} style={{ fontSize: 12, color: '#FF7A3D', textDecoration: 'none', marginBottom: 16, display: 'inline-block', cursor: 'pointer' }}>&larr; Back</a>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{

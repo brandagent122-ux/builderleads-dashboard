@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         background: 'var(--stage, #1B1B1F)',
         boxShadow: '8px 8px 20px rgba(0,0,0,0.5), -6px -6px 16px rgba(255,255,255,0.02)',
       }}>
-        <a href="/login" style={{ fontSize: 12, color: '#FF7A3D', textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}>&larr; Back</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); window.history.back() }} style={{ fontSize: 12, color: '#FF7A3D', textDecoration: 'none', marginBottom: 16, display: 'inline-block', cursor: 'pointer' }}>&larr; Back</a>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
           <p>- <strong style={{ color: '#ddd' }}>Supabase:</strong> Database and authentication (PostgreSQL hosted in the United States)</p>
           <p>- <strong style={{ color: '#ddd' }}>Vercel:</strong> Website hosting and deployment</p>
           <p>- <strong style={{ color: '#ddd' }}>Tracerfy:</strong> Third-party skip trace provider for contact information (pass-through only, data not stored)</p>
-          <p>- <strong style={{ color: '#ddd' }}>Anthropic (Claude):</strong> AI scoring and analysis of permit data (no personal data is sent to AI services)</p>
+          <p>- <strong style={{ color: '#ddd' }}>Anthropic:</strong> AI scoring and analysis of permit data (no personal data is sent to AI services)</p>
           <p>We do not sell, rent, or share your personal information with third parties for marketing purposes.</p>
 
           <p style={{ fontWeight: 600, color: '#fff', marginTop: 20 }}>6. Data Retention</p>
