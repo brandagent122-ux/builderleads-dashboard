@@ -22,6 +22,11 @@ export default function AuthGuard({ children }) {
 
       if (!checkedRef.current) {
         const p = await getProfile(session.user.id)
+        if (p && p.role === 'paused') {
+          await supabase.auth.signOut()
+          setStatus('revoked')
+          return
+        }
         if (p && !p.tos_accepted_at && pathname !== '/tos') {
           setStatus('needs-tos')
           return
@@ -55,6 +60,29 @@ export default function AuthGuard({ children }) {
   if (status === 'no-auth') {
     if (typeof window !== 'undefined') window.location.href = '/login'
     return <div style={{ minHeight: '100vh', background: 'var(--page, #141416)' }} />
+  }
+
+  if (status === 'revoked') {
+    return (
+      <div style={{
+        minHeight: '100vh', background: 'var(--page, #141416)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          textAlign: 'center', padding: 40, borderRadius: 24,
+          background: 'var(--stage, #1B1B1F)',
+          boxShadow: '8px 8px 20px rgba(0,0,0,0.5), -6px -6px 16px rgba(255,255,255,0.02)',
+          maxWidth: 400,
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Access Suspended</div>
+          <div style={{ fontSize: 13, color: '#8B8B96', lineHeight: 1.6 }}>
+            Your account has been temporarily suspended. Please contact your account administrator for assistance.
+          </div>
+          <div style={{ marginTop: 20, fontSize: 12, color: '#555560' }}>freddy@ru4reelz.com</div>
+        </div>
+      </div>
+    )
   }
 
   if (status === 'needs-tos') {

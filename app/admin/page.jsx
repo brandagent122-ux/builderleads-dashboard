@@ -107,10 +107,22 @@ export default function AdminPage() {
   }
 
   async function handlePause(userId, currentRole) {
-    const newRole = currentRole === 'paused' ? 'client' : 'paused'
-    await updateProfile(userId, { role: newRole })
-    setProfiles(profiles.map(p => p.id === userId ? { ...p, role: newRole } : p))
-    flash(newRole === 'paused' ? 'Account paused' : 'Account reactivated')
+    const action = currentRole === 'paused' ? 'restore' : 'revoke'
+    const { data: { session } } = await supabase.auth.getSession()
+    const resp = await fetch('/api/admin/revoke', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
+      body: JSON.stringify({ user_id: userId, action }),
+    })
+    const result = await resp.json()
+    if (result.success) {
+      const newRole = action === 'revoke' ? 'paused' : 'client'
+      setProfiles(profiles.map(p => p.id === userId ? { ...p, role: newRole } : p))
+      flash(action === 'revoke' ? 'Access revoked. User signed out.' : 'Account reactivated')
+    }
   }
 
   async function handleResetCredits(userId) {
