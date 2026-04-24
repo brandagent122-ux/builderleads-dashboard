@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAllLeads } from '@/lib/supabase'
+import { getAllLeads, getUserContext } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
 
 const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
@@ -24,7 +24,9 @@ export default function MapPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getAllLeads({})
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      const data = await getAllLeads({}, ids)
       setLeads(data.filter(l => l.latitude && l.longitude))
       setLoading(false)
     }

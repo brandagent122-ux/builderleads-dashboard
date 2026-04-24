@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import UnlockButton from '@/components/UnlockButton'
 import { useParams } from 'next/navigation'
-import { getLeadDetail, updateDraftStatus } from '@/lib/supabase'
+import { getLeadDetail, updateDraftStatus, getUserContext } from '@/lib/supabase'
 
 export default function LeadDetailPage() {
   const params = useParams()
@@ -18,7 +18,14 @@ export default function LeadDetailPage() {
     }
 
     async function load() {
-      const data = await getLeadDetail(params.id)
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      const data = await getLeadDetail(params.id, ids)
+      if (!data || !data.id) {
+        setLead(null)
+        setLoading(false)
+        return
+      }
       setLead(data)
       setLoading(false)
     }

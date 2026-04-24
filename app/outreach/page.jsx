@@ -1,16 +1,20 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getDrafts, updateDraftStatus } from '@/lib/supabase'
+import { getDrafts, updateDraftStatus, getUserContext } from '@/lib/supabase'
 
 export default function OutreachPage() {
   const [drafts, setDrafts] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expanded, setExpanded] = useState(null)
+  const [assignedIds, setAssignedIds] = useState(null)
 
   useEffect(() => {
     async function load() {
-      const data = await getDrafts(filter === 'all' ? null : filter)
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      setAssignedIds(ids)
+      const data = await getDrafts(filter === 'all' ? null : filter, ids)
       setDrafts(data)
       setLoading(false)
     }
@@ -20,7 +24,7 @@ export default function OutreachPage() {
 
   async function handleStatusUpdate(id, status) {
     await updateDraftStatus(id, status)
-    const data = await getDrafts(filter === 'all' ? null : filter)
+    const data = await getDrafts(filter === 'all' ? null : filter, assignedIds)
     setDrafts(data)
   }
 

@@ -13,7 +13,7 @@ export async function POST(request) {
     process.env.SUPABASE_SERVICE_KEY
   )
 
-  // Create the auth user with service key (bypasses email confirmation)
+  // Create the auth user
   const { data, error } = await adminSupabase.auth.admin.createUser({
     email,
     password,
@@ -24,18 +24,38 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  // Update the profile with additional fields
-  if (data?.user?.id) {
-    const profileUpdate = {
-      role: 'client',
-      tier: 'starter',
-    }
-    if (company_name) profileUpdate.company_name = company_name
-    if (max_leads) profileUpdate.max_leads = parseInt(max_leads)
-    if (trade) profileUpdate.trade = trade
-
-    await adminSupabase.from('profiles').update(profileUpdate).eq('id', data.user.id)
+  const userId = data?.user?.id
+  if (!userId) {
+    return NextResponse.json({ error: 'User created but no ID returned' }, { status: 500 })
   }
 
-  return NextResponse.json({ user: { id: data.user.id, email: data.user.email } })
+  // Update profile
+  const profileUpdate = { role: 'client', tier: 'starter' }
+  if (company_name) profileUpdate.company_name = company_name
+  if (max_leads) profileUpdate.max_leads = parseInt(max_leads)
+  if (trade) profileUpdate.trade = trade
+
+  await adminSupabase.from('profiles').update(profileUpdate).eq('id', userId)
+
+  // Auto-assign top N leads by score
+  const leadCount = parseInt(max_leads) || 50
+  const { data: topLeads } = await adminSupabase
+    .from('scores')
+    .select('lead_id,score')
+    .order('score', { ascending: false })
+    .limit(leadCount)
+
+  if (topLeads && topLeads.length > 0) {
+    const assignments = topLeads.map(s => ({
+      user_id: userId,
+      lead_id: s.lead_id,
+    }))
+
+    await adminSupabase.from('assigned_leads').insert(assignments)
+  }
+
+  return NextResponse.json({
+    user: { id: userId, email: data.user.email },
+    leads_assigned: topLeads?.length || 0,
+  })
 }

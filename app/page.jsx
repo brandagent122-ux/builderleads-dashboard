@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getStats, getTopLeads } from '@/lib/supabase'
+import { getStats, getTopLeads, getUserContext } from '@/lib/supabase'
 
 export default function CommandCenter() {
   const [stats, setStats] = useState(null)
@@ -19,7 +19,9 @@ export default function CommandCenter() {
     if (storedVisit) setLastVisit(new Date(storedVisit))
 
     async function load() {
-      const [s, l] = await Promise.all([getStats(), getTopLeads(20)])
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      const [s, l] = await Promise.all([getStats(ids), getTopLeads(20, ids)])
       const byAddr = {}
       l.forEach(lead => {
         if (!byAddr[lead.address] || lead.score > byAddr[lead.address].score) {

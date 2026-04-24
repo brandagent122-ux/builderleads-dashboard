@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { getLeadDetail } from '@/lib/supabase'
+import { getLeadDetail, getUserContext } from '@/lib/supabase'
 
 const CACHE_KEY = 'bl_contact_cache'
 
@@ -31,7 +31,9 @@ export default function PrintLeadPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getLeadDetail(params.id)
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      const data = await getLeadDetail(params.id, ids)
       setLead(data)
 
       const cached = getCachedContact(parseInt(params.id))

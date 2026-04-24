@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAllLeads } from '@/lib/supabase'
+import { getAllLeads, getUserContext } from '@/lib/supabase'
 
 const TRADE_PRESETS = {
   all: { label: 'All trades', permit_types: null, dins: null, stages: null },
@@ -37,7 +37,9 @@ export default function AllLeadsPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getAllLeads({})
+      const ctx = await getUserContext()
+      const ids = ctx?.assignedLeadIds || null
+      const data = await getAllLeads({}, ids)
       const preset = TRADE_PRESETS[trade]
       let filtered = data
       if (preset?.permit_types) filtered = filtered.filter(l => preset.permit_types.some(pt => l.permit_type?.includes(pt)))
