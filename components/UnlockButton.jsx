@@ -19,6 +19,192 @@ function setCachedContact(leadId, persons) {
   } catch {}
 }
 
+function formatPhone(num) {
+  if (!num || num.length !== 10) return num
+  return `(${num.slice(0,3)}) ${num.slice(3,6)}-${num.slice(6)}`
+}
+
+function getInitials(name) {
+  if (!name || name === 'Unknown') return '?'
+  return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+const AVATAR_COLORS = [
+  { bg: '#FF7A3D15', border: '#FF7A3D30', text: '#FF7A3D' },
+  { bg: '#3b82f615', border: '#3b82f630', text: '#60a5fa' },
+  { bg: '#a855f715', border: '#a855f730', text: '#c084fc' },
+  { bg: '#14b8a615', border: '#14b8a630', text: '#2dd4bf' },
+]
+
+const CopyIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="9" y="9" width="13" height="13" rx="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+)
+
+const CheckIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+)
+
+function CopyRow({ text, children }) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy(e) {
+    e.preventDefault()
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <div onClick={handleCopy} className="copy-row" style={{
+      position: 'relative', cursor: 'pointer', padding: '6px 8px', margin: '0 -8px',
+      borderRadius: 8, transition: 'background 0.15s',
+    }}>
+      <div style={{ paddingRight: 60 }}>{children}</div>
+      <div className="copy-btn" style={{
+        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+        background: '#2a2a30', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
+        padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4,
+        opacity: 0, transition: 'opacity 0.15s',
+      }}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: copied ? '#4ade80' : '#888', letterSpacing: 0.5 }}>
+          {copied ? 'Copied' : 'Copy'}
+        </span>
+      </div>
+      <style>{`
+        .copy-row:hover { background: rgba(255,255,255,0.04) !important; }
+        .copy-row:hover .copy-btn { opacity: 1 !important; }
+      `}</style>
+    </div>
+  )
+}
+
+function PersonCard({ person, colorIndex }) {
+  const color = AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]
+  const initials = getInitials(person.full_name)
+  const okPhones = (person.phones || []).filter(p => !p.dnc)
+  const dncPhones = (person.phones || []).filter(p => p.dnc)
+
+  return (
+    <div style={{
+      background: 'var(--card, #212126)', borderRadius: 12, padding: 16,
+      border: '1px solid rgba(255,255,255,0.03)',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          background: color.bg, border: `1px solid ${color.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 600, fontSize: 14, color: color.text,
+        }}>{initials}</div>
+        <div>
+          {person.full_name && person.full_name !== 'Unknown' && (
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#f0f0f0' }}>{person.full_name}</div>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
+            {person.property_owner && (
+              <span className="font-mono" style={{
+                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
+                background: '#4ade8015', color: '#4ade80', border: '1px solid #4ade8020',
+              }}>OWNER</span>
+            )}
+            {person.deceased && (
+              <span className="font-mono" style={{
+                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
+                background: '#f8717115', color: '#f87171', border: '1px solid #f8717120',
+              }}>DECEASED</span>
+            )}
+            {person.litigator && (
+              <span className="font-mono" style={{
+                fontSize: 9, letterSpacing: 1, padding: '2px 8px', borderRadius: 4,
+                background: '#fbbf2415', color: '#fbbf24', border: '1px solid #fbbf2420',
+              }}>LITIGATOR</span>
+            )}
+            {person.age && (
+              <span className="font-mono" style={{ fontSize: 9, letterSpacing: 1, color: '#555560' }}>AGE {person.age}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Two column grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Phones */}
+        {(person.phones && person.phones.length > 0) && (
+          <div style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 10, padding: 12 }}>
+            <div className="font-mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#555560', marginBottom: 10 }}>PHONES</div>
+            {okPhones.map((p, j) => (
+              <CopyRow key={`ok-${j}`} text={formatPhone(p.number)}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="font-mono" style={{ fontSize: 14, color: '#f0f0f0' }}>{formatPhone(p.number)}</div>
+                    <div className="font-mono" style={{ fontSize: 9, color: '#555560', marginTop: 2 }}>{p.type || 'Phone'}</div>
+                  </div>
+                  <span className="font-mono" style={{
+                    fontSize: 8, letterSpacing: 1, padding: '2px 6px', borderRadius: 4,
+                    background: '#4ade8015', color: '#4ade80',
+                  }}>OK</span>
+                </div>
+              </CopyRow>
+            ))}
+            {dncPhones.map((p, j) => (
+              <div key={`dnc-${j}`} style={{ padding: '6px 8px', margin: '0 -8px', borderRadius: 8, opacity: 0.45 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="font-mono" style={{ fontSize: 14, color: '#f0f0f0' }}>{formatPhone(p.number)}</div>
+                    <div className="font-mono" style={{ fontSize: 9, color: '#555560', marginTop: 2 }}>{p.type || 'Phone'}</div>
+                  </div>
+                  <span className="font-mono" style={{
+                    fontSize: 8, letterSpacing: 1, padding: '2px 6px', borderRadius: 4,
+                    background: '#f8717115', color: '#f87171', border: '1px solid #f8717120',
+                  }}>DNC</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Emails + Mailing */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {person.emails && person.emails.length > 0 && (
+            <div style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 10, padding: 12, flex: 1 }}>
+              <div className="font-mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#555560', marginBottom: 10 }}>EMAILS</div>
+              {person.emails.map((e, j) => (
+                <CopyRow key={j} text={e.email}>
+                  <div className="font-mono" style={{ fontSize: 12, color: '#FF7A3D' }}>{e.email}</div>
+                </CopyRow>
+              ))}
+            </div>
+          )}
+          {person.mailing_address && person.mailing_address.street && (
+            <div style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 10, padding: 12 }}>
+              <div className="font-mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#555560', marginBottom: 8 }}>MAILING ADDRESS</div>
+              <CopyRow text={`${person.mailing_address.street}, ${person.mailing_address.city}, ${person.mailing_address.state} ${person.mailing_address.zip}`}>
+                <div style={{ fontSize: 12, color: '#aaaaaa', lineHeight: 1.4 }}>
+                  {person.mailing_address.street}<br/>
+                  {person.mailing_address.city}, {person.mailing_address.state} {person.mailing_address.zip}
+                </div>
+              </CopyRow>
+            </div>
+          )}
+        </div>
+
+        {/* If no phones, show emails full width */}
+        {(!person.phones || person.phones.length === 0) && (!person.emails || person.emails.length === 0) && (
+          <div style={{ gridColumn: '1 / -1', fontSize: 13, color: '#555560', padding: 12 }}>No contact data available.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function UnlockButton({ leadId, address }) {
   const [status, setStatus] = useState('idle')
   const [persons, setPersons] = useState(null)
@@ -91,36 +277,33 @@ export default function UnlockButton({ leadId, address }) {
     setCreditsRemaining(result.credits_remaining)
     setStatus('unlocked')
     setAlreadyUnlocked(true)
-
     setCachedContact(leadId, contactPersons)
   }
 
-  // Previously unlocked but no cached data
+  // Previously unlocked, no cache
   if (alreadyUnlocked && !persons && status !== 'loading') {
     return (
       <div>
         <div style={{
-          padding: 16, borderRadius: 14,
-          background: 'rgba(34,197,94,0.08)',
-          border: '1px solid rgba(34,197,94,0.2)',
-          marginBottom: 12,
+          background: '#1B1B1F', borderRadius: 14, padding: 20,
+          border: '1px solid rgba(255,255,255,0.04)', marginBottom: 12,
         }}>
-          <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">PREVIOUSLY UNLOCKED</div>
-          <div className="text-[13px] text-ink-2">Contact data is not stored on our servers. Re-fetch from Tracerfy to view again.</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#555560' }}></div>
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: 2, color: '#555560', fontWeight: 600 }}>PREVIOUSLY UNLOCKED</span>
+          </div>
+          <div style={{ fontSize: 13, color: '#777' }}>Contact data is not stored on our servers. Re-fetch from Tracerfy to view again.</div>
         </div>
-        <button
-          onClick={() => doUnlock(true)}
-          className="btn-ghost w-full"
-          style={{ padding: '12px', borderRadius: 14, fontSize: 13, fontWeight: 600 }}
-        >
-          <span className="flex items-center justify-center gap-2">
+        <button onClick={() => doUnlock(true)} className="btn-ghost w-full"
+          style={{ padding: 12, borderRadius: 14, fontSize: 13, fontWeight: 600 }}>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
             Re-fetch Contact Info (free)
           </span>
         </button>
-        {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
+        {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{error}</div>}
       </div>
     )
   }
@@ -129,127 +312,66 @@ export default function UnlockButton({ leadId, address }) {
   if (status === 'unlocked' && persons) {
     return (
       <div style={{
-        padding: 20, borderRadius: 16,
-        background: 'rgba(34,197,94,0.06)',
-        border: '1px solid rgba(34,197,94,0.2)',
+        background: '#1B1B1F', borderRadius: 14, padding: 20,
+        border: '1px solid rgba(255,255,255,0.04)',
       }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-mono text-[10px] text-green-400 tracking-wider">CONTACT INFO (NOT STORED)</div>
-          {creditsRemaining != null && (
-            <div className="font-mono text-[10px] text-ink-3">{creditsRemaining} credits left</div>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></div>
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: 2, color: '#4ade80', fontWeight: 600 }}>CONTACT INFO</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {creditsRemaining != null && (
+              <span className="font-mono" style={{ fontSize: 10, color: '#555560' }}>{creditsRemaining} credits left</span>
+            )}
+            <span className="font-mono" style={{ fontSize: 10, color: '#555560' }}>NOT STORED ON SERVER</span>
+          </div>
         </div>
 
         {persons.length === 0 && (
-          <div className="text-[13px] text-ink-2">No contact data found for this address.</div>
+          <div style={{ fontSize: 13, color: '#555560', padding: 12 }}>No contact data found for this address.</div>
         )}
 
-        {persons.map((person, i) => (
-          <div key={i} className="mb-5 last:mb-0">
-            {person.full_name && person.full_name !== 'Unknown' && (
-              <div className="text-[16px] font-semibold text-ink-0 mb-1">{person.full_name}</div>
-            )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {persons.map((person, i) => (
+            <PersonCard key={i} person={person} colorIndex={i} />
+          ))}
+        </div>
 
-            <div className="flex flex-wrap gap-2 mb-3">
-              {person.property_owner && (
-                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80' }}>OWNER</span>
-              )}
-              {person.deceased && (
-                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>DECEASED</span>
-              )}
-              {person.litigator && (
-                <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>LITIGATOR</span>
-              )}
-              {person.age && (
-                <span className="font-mono text-[9px] tracking-wider text-ink-3">AGE {person.age}</span>
-              )}
-            </div>
-
-            {person.phones && person.phones.length > 0 && (
-              <div className="mb-3">
-                <div className="font-mono text-[10px] text-ink-3 mb-1.5">PHONES</div>
-                {person.phones.map((p, j) => (
-                  <div key={j} className="flex items-center gap-3 mb-1">
-                    <a href={`tel:${p.number}`} className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
-                      {formatPhone(p.number)}
-                    </a>
-                    {p.type && (
-                      <span className="font-mono text-[9px] tracking-wider text-ink-3 px-1.5 py-0.5 rounded"
-                        style={{ background: 'var(--card-sunk)' }}>{p.type}</span>
-                    )}
-                    {p.dnc && (
-                      <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>DNC</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {person.emails && person.emails.length > 0 && (
-              <div className="mb-3">
-                <div className="font-mono text-[10px] text-ink-3 mb-1.5">EMAILS</div>
-                {person.emails.map((e, j) => (
-                  <a key={j} href={`mailto:${e.email}`}
-                    className="text-[14px] text-ink-0 font-mono mb-1 block hover:text-accent transition-colors">
-                    {e.email}
-                  </a>
-                ))}
-              </div>
-            )}
-
-            {person.mailing_address && person.mailing_address.street && (
-              <div>
-                <div className="font-mono text-[10px] text-ink-3 mb-1">MAILING ADDRESS</div>
-                <div className="text-[13px] text-ink-2">
-                  {person.mailing_address.street}, {person.mailing_address.city}, {person.mailing_address.state} {person.mailing_address.zip}
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-
-        <div className="mt-4 pt-3 text-[11px] text-ink-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: '#555560' }}>
           This data is provided by a third-party service and is not stored by BuilderLeads.
         </div>
       </div>
     )
   }
 
-  // Loading state
+  // Loading
   if (status === 'loading') {
     return (
-      <button disabled className="btn-ember w-full" style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600, opacity: 0.6 }}>
-        <span className="flex items-center justify-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+      <button disabled className="btn-ember w-full" style={{ padding: 14, borderRadius: 14, fontSize: 14, fontWeight: 600, opacity: 0.6 }}>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+            <circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/>
+          </svg>
           Looking up owner...
         </span>
       </button>
     )
   }
 
-  // Default: unlock button
+  // Default unlock button
   return (
     <div>
-      <button
-        onClick={() => doUnlock(false)}
-        className="btn-ember w-full"
-        style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600 }}
-      >
-        <span className="flex items-center justify-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <button onClick={() => doUnlock(false)} className="btn-ember w-full"
+        style={{ padding: 14, borderRadius: 14, fontSize: 14, fontWeight: 600 }}>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
           Unlock Contact Info (2 credits)
         </span>
       </button>
-      {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
+      {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{error}</div>}
     </div>
   )
-}
-
-function formatPhone(num) {
-  if (!num || num.length !== 10) return num
-  return `(${num.slice(0,3)}) ${num.slice(3,6)}-${num.slice(6)}`
 }
