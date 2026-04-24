@@ -40,7 +40,6 @@ export default function UnlockButton({ leadId, address }) {
           .single()
         if (data) {
           setAlreadyUnlocked(true)
-          // Try to load from localStorage cache
           const cached = getCachedContact(leadId)
           if (cached) {
             setPersons(cached)
@@ -52,7 +51,7 @@ export default function UnlockButton({ leadId, address }) {
     init()
   }, [leadId])
 
-  async function handleUnlock() {
+  async function doUnlock(isRefetch) {
     if (!userId || status === 'loading') return
     setStatus('loading')
     setError('')
@@ -75,6 +74,7 @@ export default function UnlockButton({ leadId, address }) {
         state,
         zip: zip || undefined,
         user_id: userId,
+        refetch: isRefetch || undefined,
       }),
     })
 
@@ -92,57 +92,10 @@ export default function UnlockButton({ leadId, address }) {
     setStatus('unlocked')
     setAlreadyUnlocked(true)
 
-    // Cache in localStorage
     setCachedContact(leadId, contactPersons)
   }
 
-  async function handleRefetch() {
-    // Clear unlock record check so handleUnlock can proceed
-    // The API will return "Already unlocked" since there's a record,
-    // so we need a separate re-fetch flow
-    setStatus('loading')
-    setError('')
-
-    const parts = address.split(',').map(s => s.trim())
-    const streetAddr = parts[0] || address
-    const city = parts[1] || 'Pacific Palisades'
-    const stateZip = parts[2] || 'CA'
-    const stateParts = stateZip.split(' ')
-    const state = stateParts[0] || 'CA'
-    const zip = stateParts[1] || ''
-
-    const resp = await fetch('/api/unlock', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lead_id: leadId,
-        address: streetAddr,
-        city,
-        state,
-        zip: zip || undefined,
-        user_id: userId,
-        refetch: true,
-      }),
-    })
-
-    const result = await resp.json()
-
-    if (result.error) {
-      setError(result.error)
-      setStatus('error')
-      return
-    }
-
-    const contactPersons = result.persons || []
-    setPersons(contactPersons)
-    setCreditsRemaining(result.credits_remaining)
-    setStatus('unlocked')
-
-    // Update cache
-    setCachedContact(leadId, contactPersons)
-  }
-
-  // Previously unlocked but no cached data - show re-fetch button
+  // Previously unlocked but no cached data
   if (alreadyUnlocked && !persons && status !== 'loading') {
     return (
       <div>
@@ -153,10 +106,10 @@ export default function UnlockButton({ leadId, address }) {
           marginBottom: 12,
         }}>
           <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">PREVIOUSLY UNLOCKED</div>
-          <div className="text-[13px] text-ink-2">Contact data is not stored permanently. Re-fetch to view again.</div>
+          <div className="text-[13px] text-ink-2">Contact data is not stored on our servers. Re-fetch from Tracerfy to view again.</div>
         </div>
         <button
-          onClick={handleRefetch}
+          onClick={() => doUnlock(true)}
           className="btn-ghost w-full"
           style={{ padding: '12px', borderRadius: 14, fontSize: 13, fontWeight: 600 }}
         >
@@ -164,7 +117,7 @@ export default function UnlockButton({ leadId, address }) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
-            Re-fetch Contact Info (5 credits)
+            Re-fetch Contact Info (free)
           </span>
         </button>
         {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
@@ -193,7 +146,7 @@ export default function UnlockButton({ leadId, address }) {
 
         {persons.map((person, i) => (
           <div key={i} className="mb-5 last:mb-0">
-            {person.full_name && (
+            {person.full_name && person.full_name !== 'Unknown' && (
               <div className="text-[16px] font-semibold text-ink-0 mb-1">{person.full_name}</div>
             )}
 
@@ -226,9 +179,6 @@ export default function UnlockButton({ leadId, address }) {
                     {p.type && (
                       <span className="font-mono text-[9px] tracking-wider text-ink-3 px-1.5 py-0.5 rounded"
                         style={{ background: 'var(--card-sunk)' }}>{p.type}</span>
-                    )}
-                    {p.carrier && (
-                      <span className="font-mono text-[9px] text-ink-3">{p.carrier}</span>
                     )}
                     {p.dnc && (
                       <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
@@ -285,13 +235,13 @@ export default function UnlockButton({ leadId, address }) {
   return (
     <div>
       <button
-        onClick={handleUnlock}
+        onClick={() => doUnlock(false)}
         className="btn-ember w-full"
         style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600 }}
       >
         <span className="flex items-center justify-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Unlock Contact Info (5 credits)
+          Unlock Contact Info (2 credits)
         </span>
       </button>
       {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
