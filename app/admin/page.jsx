@@ -709,19 +709,38 @@ function ManageLeadsPanel({ userId, onUpdate }) {
 function ActivityPanel({ userId }) {
   const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
+  const [newIds, setNewIds] = useState(new Set())
+  const [lastCount, setLastCount] = useState(0)
+  const [polling, setPolling] = useState(true)
+
+  async function fetchActivity() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const resp = await fetch(`/api/admin/activity?user_id=${userId}`, {
+      headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+    })
+    const data = await resp.json()
+    const items = data.activity || []
+
+    // Detect new entries for animation
+    if (lastCount > 0 && items.length > lastCount) {
+      const newCount = items.length - lastCount
+      const ids = new Set()
+      for (let i = 0; i < newCount; i++) ids.add(i)
+      setNewIds(ids)
+      setTimeout(() => setNewIds(new Set()), 2000)
+    }
+    setLastCount(items.length)
+    setActivity(items)
+    setLoading(false)
+  }
 
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      const resp = await fetch(`/api/admin/activity?user_id=${userId}`, {
-        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
-      })
-      const data = await resp.json()
-      setActivity(data.activity || [])
-      setLoading(false)
-    }
-    load()
-  }, [userId])
+    fetchActivity()
+    const interval = setInterval(() => {
+      if (polling) fetchActivity()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [userId, polling])
 
   const ACTION_LABELS = {
     lead_viewed: { icon: '👁', label: 'Viewed lead', color: '#60a5fa' },
@@ -749,8 +768,45 @@ function ActivityPanel({ userId }) {
 
   return (
     <div className="mt-4" style={{ background: 'var(--card-sunk, #19191D)', borderRadius: 14, padding: 16 }}>
+      <style>{`
+        @keyframes activityFlash {
+          0% { background: rgba(255,122,61,0.15); }
+          100% { background: transparent; }
+        }
+        .activity-new { animation: activityFlash 2s ease-out; }
+      `}</style>
+
       <div className="flex items-center justify-between mb-3">
-        <div className="font-mono text-[10px] text-ink-3 tracking-wider">ACTIVITY LOG ({activity.length})</div>
+        <div className="flex items-center gap-2">
+          <div className="font-mono text-[10px] text-ink-3 tracking-wider">ACTIVITY LOG ({activity.length})</div>
+          {polling && (
+            <div className="flex items-center gap-1">
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', animation: 'pulse 2s infinite' }}></div>
+              <span className="font-mono text-[9px] text-green-400">LIVE</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPolling(!polling)}
+            style={{ fontSize: 9, color: polling ? '#4ade80' : '#555560', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}>
+            {polling ? 'Pause' : 'Resume'}
+          </button>
+          <button
+            onClick={fetchActivity}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 500,
+              border: 'none', cursor: 'pointer',
+              background: 'rgba(96,165,250,0.1)', color: '#60a5fa',
+              fontFamily: 'monospace',
+            }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {activity.length === 0 ? (
@@ -760,10 +816,13 @@ function ActivityPanel({ userId }) {
           {activity.map((a, i) => {
             const config = ACTION_LABELS[a.action] || { icon: '•', label: a.action, color: '#555560' }
             return (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
-              }}>
+              <div key={`${a.created_at}-${i}`}
+                className={newIds.has(i) ? 'activity-new' : ''}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '7px 6px',
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  borderRadius: 6,
+                }}>
                 <span style={{ fontSize: 14, width: 24, textAlign: 'center', flexShrink: 0 }}>{config.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: config.color, fontWeight: 500 }}>{config.label}</div>
