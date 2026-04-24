@@ -746,6 +746,54 @@ function ActivityPanel({ userId }) {
   const [newIds, setNewIds] = useState(new Set())
   const [lastCount, setLastCount] = useState(0)
   const [polling, setPolling] = useState(true)
+  const [flags, setFlags] = useState([])
+
+  function detectFlags(items) {
+    const alerts = []
+    const now = new Date()
+
+    // Check last hour of activity
+    const lastHour = items.filter(a => (now - new Date(a.created_at)) < 3600000)
+    const last5min = items.filter(a => (now - new Date(a.created_at)) < 300000)
+
+    // Rapid lead viewing (10+ in 5 min)
+    const recentViews = last5min.filter(a => a.action === 'lead_viewed')
+    if (recentViews.length >= 10) {
+      alerts.push({ level: 'high', msg: `${recentViews.length} leads viewed in 5 min (possible scraping)` })
+    }
+
+    // Multiple CSV exports
+    const recentExports = lastHour.filter(a => a.action === 'csv_exported')
+    if (recentExports.length >= 3) {
+      alerts.push({ level: 'high', msg: `${recentExports.length} CSV exports in 1 hour (data grab)` })
+    }
+
+    // High volume activity
+    if (lastHour.length >= 50) {
+      alerts.push({ level: 'medium', msg: `${lastHour.length} actions in 1 hour (unusual volume)` })
+    }
+
+    // Multiple contact unlocks in quick succession
+    const recentUnlocks = last5min.filter(a => a.action === 'contact_unlocked')
+    if (recentUnlocks.length >= 5) {
+      alerts.push({ level: 'high', msg: `${recentUnlocks.length} contacts unlocked in 5 min (bulk unlock)` })
+    }
+
+    // Rapid map clicks (exploring outside territory)
+    const recentMapClicks = last5min.filter(a => a.action === 'map_lead_clicked')
+    if (recentMapClicks.length >= 15) {
+      alerts.push({ level: 'medium', msg: `${recentMapClicks.length} map pins clicked in 5 min` })
+    }
+
+    // Print after export (possible data collection)
+    const hasPrint = lastHour.some(a => a.action === 'lead_printed')
+    const hasExport = lastHour.some(a => a.action === 'csv_exported')
+    if (hasPrint && hasExport) {
+      alerts.push({ level: 'low', msg: 'Both printed and exported in same hour' })
+    }
+
+    return alerts
+  }
 
   async function fetchActivity() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -765,6 +813,7 @@ function ActivityPanel({ userId }) {
     }
     setLastCount(items.length)
     setActivity(items)
+    setFlags(detectFlags(items))
     setLoading(false)
   }
 
@@ -786,6 +835,7 @@ function ActivityPanel({ userId }) {
     csv_exported: { icon: '📥', label: 'CSV export', color: '#f472b6' },
     map_viewed: { icon: '🗺', label: 'Viewed map', color: '#38bdf8' },
     map_lead_clicked: { icon: '📍', label: 'Clicked pin on map', color: '#fb923c' },
+    note_added: { icon: '📝', label: 'Added note', color: '#a78bfa' },
     login: { icon: '🔑', label: 'Logged in', color: '#60a5fa' },
   }
 
@@ -848,7 +898,19 @@ function ActivityPanel({ userId }) {
       {activity.length === 0 ? (
         <div className="text-[12px] text-ink-3 py-2">No activity recorded yet.</div>
       ) : (
-        <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+        <>
+          {flags.length > 0 && (
+            <div style={{ marginBottom: 12, padding: 10, borderRadius: 10, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
+              <div className="font-mono text-[9px] tracking-wider text-red-400 mb-2">RED FLAGS DETECTED</div>
+              {flags.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
+                  <span style={{ fontSize: 12 }}>{f.level === 'high' ? '🚨' : f.level === 'medium' ? '⚠️' : '🔶'}</span>
+                  <span style={{ fontSize: 11, color: f.level === 'high' ? '#f87171' : f.level === 'medium' ? '#fbbf24' : '#fb923c' }}>{f.msg}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ maxHeight: 350, overflowY: 'auto' }}>
           {activity.map((a, i) => {
             const config = ACTION_LABELS[a.action] || { icon: '•', label: a.action, color: '#555560' }
             return (
@@ -869,6 +931,7 @@ function ActivityPanel({ userId }) {
             )
           })}
         </div>
+        </>
       )}
     </div>
   )

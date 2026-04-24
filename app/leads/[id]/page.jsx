@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import UnlockButton from '@/components/UnlockButton'
+import NotesPanel from '@/components/NotesPanel'
 import { useParams } from 'next/navigation'
 import { getLeadDetail, updateDraftStatus, getUserContext } from '@/lib/supabase'
 import { logActivity } from '@/lib/activity'
@@ -299,6 +300,11 @@ export default function LeadDetailPage() {
       <div className="card p-5 mb-6">
         <h3 className="text-sm font-semibold text-white mb-3">Owner Contact Info</h3>
         <UnlockButton leadId={lead.id} address={lead.address} />
+      </div>
+
+      {/* Notes */}
+      <div className="mb-6">
+        <NotesPanel leadId={lead.id} address={lead.address} />
       </div>
 
       {/* Draft Outreach */}
