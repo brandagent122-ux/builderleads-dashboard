@@ -223,9 +223,13 @@ export default function UnlockButton({ leadId, address }) {
     const state = stateParts[0] || 'CA'
     const zip = stateParts[1] || ''
 
+    const session = await getSession()
     const resp = await fetch('/api/unlock', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
       body: JSON.stringify({
         lead_id: leadId, address: streetAddr, city, state,
         zip: zip || undefined, user_id: userId, refetch: isRefetch || undefined,
