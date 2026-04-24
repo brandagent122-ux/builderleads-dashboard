@@ -8,7 +8,10 @@ const CACHE_KEY = 'bl_contact_cache'
 function getCachedContact(leadId) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
-    return cache[leadId] || null
+    const entry = cache[leadId]
+    if (!entry) return null
+    if (entry.expires && Date.now() > entry.expires) return null
+    return entry.persons || entry
   } catch { return null }
 }
 
