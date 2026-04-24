@@ -486,6 +486,11 @@ function ManageLeadsPanel({ userId, onUpdate }) {
   const [busy, setBusy] = useState(false)
   const [visibleAvail, setVisibleAvail] = useState(30)
 
+  async function authHeaders() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` }
+  }
+
   const SCORE_FILTERS = [
     { key: 'all', label: 'All', min: 0, max: 100 },
     { key: '90+', label: '90+', min: 90, max: 100 },
@@ -498,7 +503,8 @@ function ManageLeadsPanel({ userId, onUpdate }) {
   useEffect(() => { searchAvailable() }, [search, scoreFilter])
 
   async function loadAssigned() {
-    const resp = await fetch(`/api/admin/leads?user_id=${userId}`)
+    const h = await authHeaders()
+    const resp = await fetch(`/api/admin/leads?user_id=${userId}`, { headers: h })
     const data = await resp.json()
     setAssigned(data.assigned || [])
     setLoading(false)
@@ -508,7 +514,8 @@ function ManageLeadsPanel({ userId, onUpdate }) {
     const f = SCORE_FILTERS.find(s => s.key === scoreFilter) || SCORE_FILTERS[0]
     const params = new URLSearchParams({ min_score: f.min, max_score: f.max, limit: 200 })
     if (search) params.set('search', search)
-    const resp = await fetch(`/api/admin/leads/search?${params}`)
+    const h = await authHeaders()
+    const resp = await fetch(`/api/admin/leads/search?${params}`, { headers: h })
     const data = await resp.json()
     setAvailable(data.leads || [])
     setVisibleAvail(30)
@@ -517,9 +524,9 @@ function ManageLeadsPanel({ userId, onUpdate }) {
   async function handleAssign() {
     if (selected.size === 0) return
     setBusy(true)
+    const h = await authHeaders()
     await fetch('/api/admin/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: h,
       body: JSON.stringify({ action: 'assign', user_id: userId, lead_ids: [...selected] }),
     })
     setSelected(new Set())
@@ -530,9 +537,9 @@ function ManageLeadsPanel({ userId, onUpdate }) {
 
   async function handleRemove(leadId) {
     setBusy(true)
+    const h = await authHeaders()
     await fetch('/api/admin/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: h,
       body: JSON.stringify({ action: 'remove', user_id: userId, lead_ids: [leadId] }),
     })
     await loadAssigned()
@@ -542,9 +549,9 @@ function ManageLeadsPanel({ userId, onUpdate }) {
 
   async function handlePreset(preset) {
     setBusy(true)
+    const h = await authHeaders()
     await fetch('/api/admin/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: h,
       body: JSON.stringify({ action: 'preset', user_id: userId, preset, count: 10 }),
     })
     await loadAssigned()
@@ -554,9 +561,9 @@ function ManageLeadsPanel({ userId, onUpdate }) {
 
   async function handleClear() {
     setBusy(true)
+    const h = await authHeaders()
     await fetch('/api/admin/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: h,
       body: JSON.stringify({ action: 'clear', user_id: userId }),
     })
     await loadAssigned()
