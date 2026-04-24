@@ -308,8 +308,16 @@ export default function PrintLeadPage() {
           </Section>
         )}
 
+        {/* Legal disclaimer */}
+        <div style={{ marginTop: 24, padding: 12, background: '#f9f9f9', borderRadius: 6, border: '1px solid #e5e5e5' }}>
+          <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, color: '#999', marginBottom: 4, textTransform: 'uppercase' }}>Important Notice</div>
+          <div style={{ fontSize: 8, color: '#888', lineHeight: 1.5 }}>
+            Contact information is provided by a third-party skip trace service and is not stored by BuilderLeads or RU4REELZ LLC. Recipient is solely responsible for compliance with TCPA, CAN-SPAM, CCPA, and all applicable federal, state, and local laws governing outreach and contact. Do not call numbers flagged as DNC (Do Not Call). Do not use auto-dialers, robocalls, or pre-recorded messages. Do not resell, redistribute, or transfer contact information. Use of this data is subject to the Lead Buyer Agreement accepted at login. For questions, contact freddy@ru4reelz.com.
+          </div>
+        </div>
+
         {/* Footer */}
-        <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
           <span>BuilderLeads by RU4REELZ | freddy@ru4reelz.com</span>
           <span>Lead #{lead.id} | {lead.address}</span>
         </div>
