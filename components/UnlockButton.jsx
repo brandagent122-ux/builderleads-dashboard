@@ -2,6 +2,23 @@
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
 
+const CACHE_KEY = 'bl_contact_cache'
+
+function getCachedContact(leadId) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
+    return cache[leadId] || null
+  } catch { return null }
+}
+
+function setCachedContact(leadId, persons) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
+    cache[leadId] = persons
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+  } catch {}
+}
+
 export default function UnlockButton({ leadId, address }) {
   const [status, setStatus] = useState('idle')
   const [persons, setPersons] = useState(null)
@@ -21,7 +38,15 @@ export default function UnlockButton({ leadId, address }) {
           .eq('user_id', session.user.id)
           .eq('lead_id', leadId)
           .single()
-        if (data) setAlreadyUnlocked(true)
+        if (data) {
+          setAlreadyUnlocked(true)
+          // Try to load from localStorage cache
+          const cached = getCachedContact(leadId)
+          if (cached) {
+            setPersons(cached)
+            setStatus('unlocked')
+          }
+        }
       }
     }
     init()
@@ -61,25 +86,93 @@ export default function UnlockButton({ leadId, address }) {
       return
     }
 
-    setPersons(result.persons || [])
+    const contactPersons = result.persons || []
+    setPersons(contactPersons)
     setCreditsRemaining(result.credits_remaining)
     setStatus('unlocked')
     setAlreadyUnlocked(true)
+
+    // Cache in localStorage
+    setCachedContact(leadId, contactPersons)
   }
 
-  if (alreadyUnlocked && !persons) {
+  async function handleRefetch() {
+    // Clear unlock record check so handleUnlock can proceed
+    // The API will return "Already unlocked" since there's a record,
+    // so we need a separate re-fetch flow
+    setStatus('loading')
+    setError('')
+
+    const parts = address.split(',').map(s => s.trim())
+    const streetAddr = parts[0] || address
+    const city = parts[1] || 'Pacific Palisades'
+    const stateZip = parts[2] || 'CA'
+    const stateParts = stateZip.split(' ')
+    const state = stateParts[0] || 'CA'
+    const zip = stateParts[1] || ''
+
+    const resp = await fetch('/api/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead_id: leadId,
+        address: streetAddr,
+        city,
+        state,
+        zip: zip || undefined,
+        user_id: userId,
+        refetch: true,
+      }),
+    })
+
+    const result = await resp.json()
+
+    if (result.error) {
+      setError(result.error)
+      setStatus('error')
+      return
+    }
+
+    const contactPersons = result.persons || []
+    setPersons(contactPersons)
+    setCreditsRemaining(result.credits_remaining)
+    setStatus('unlocked')
+
+    // Update cache
+    setCachedContact(leadId, contactPersons)
+  }
+
+  // Previously unlocked but no cached data - show re-fetch button
+  if (alreadyUnlocked && !persons && status !== 'loading') {
     return (
-      <div style={{
-        padding: 16, borderRadius: 14,
-        background: 'rgba(34,197,94,0.08)',
-        border: '1px solid rgba(34,197,94,0.2)',
-      }}>
-        <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">CONTACT UNLOCKED</div>
-        <div className="text-[13px] text-ink-2">Contact info was previously unlocked for this lead. Data is not stored permanently.</div>
+      <div>
+        <div style={{
+          padding: 16, borderRadius: 14,
+          background: 'rgba(34,197,94,0.08)',
+          border: '1px solid rgba(34,197,94,0.2)',
+          marginBottom: 12,
+        }}>
+          <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">PREVIOUSLY UNLOCKED</div>
+          <div className="text-[13px] text-ink-2">Contact data is not stored permanently. Re-fetch to view again.</div>
+        </div>
+        <button
+          onClick={handleRefetch}
+          className="btn-ghost w-full"
+          style={{ padding: '12px', borderRadius: 14, fontSize: 13, fontWeight: 600 }}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Re-fetch Contact Info (5 credits)
+          </span>
+        </button>
+        {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
       </div>
     )
   }
 
+  // Show contact data
   if (status === 'unlocked' && persons) {
     return (
       <div style={{
@@ -100,12 +193,10 @@ export default function UnlockButton({ leadId, address }) {
 
         {persons.map((person, i) => (
           <div key={i} className="mb-5 last:mb-0">
-            {/* Name */}
             {person.full_name && (
               <div className="text-[16px] font-semibold text-ink-0 mb-1">{person.full_name}</div>
             )}
 
-            {/* Tags row */}
             <div className="flex flex-wrap gap-2 mb-3">
               {person.property_owner && (
                 <span className="font-mono text-[9px] tracking-wider px-2 py-0.5 rounded"
@@ -124,7 +215,6 @@ export default function UnlockButton({ leadId, address }) {
               )}
             </div>
 
-            {/* Phones */}
             {person.phones && person.phones.length > 0 && (
               <div className="mb-3">
                 <div className="font-mono text-[10px] text-ink-3 mb-1.5">PHONES</div>
@@ -149,7 +239,6 @@ export default function UnlockButton({ leadId, address }) {
               </div>
             )}
 
-            {/* Emails */}
             {person.emails && person.emails.length > 0 && (
               <div className="mb-3">
                 <div className="font-mono text-[10px] text-ink-3 mb-1.5">EMAILS</div>
@@ -162,7 +251,6 @@ export default function UnlockButton({ leadId, address }) {
               </div>
             )}
 
-            {/* Mailing address */}
             {person.mailing_address && person.mailing_address.street && (
               <div>
                 <div className="font-mono text-[10px] text-ink-3 mb-1">MAILING ADDRESS</div>
@@ -181,25 +269,30 @@ export default function UnlockButton({ leadId, address }) {
     )
   }
 
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <button disabled className="btn-ember w-full" style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600, opacity: 0.6 }}>
+        <span className="flex items-center justify-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+          Looking up owner...
+        </span>
+      </button>
+    )
+  }
+
+  // Default: unlock button
   return (
     <div>
       <button
         onClick={handleUnlock}
-        disabled={status === 'loading'}
         className="btn-ember w-full"
-        style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600, opacity: status === 'loading' ? 0.6 : 1 }}
+        style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600 }}
       >
-        {status === 'loading' ? (
-          <span className="flex items-center justify-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-            Looking up owner...
-          </span>
-        ) : (
-          <span className="flex items-center justify-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Unlock Contact Info (5 credits)
-          </span>
-        )}
+        <span className="flex items-center justify-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Unlock Contact Info (5 credits)
+        </span>
       </button>
       {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
     </div>

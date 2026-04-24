@@ -56,6 +56,17 @@ export default function LeadDetailPage() {
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </button>
+            <button
+              onClick={() => window.open(`/leads/${params.id}/print`, '_blank')}
+              className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors"
+              title="Export / Print lead report"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4a4d63" strokeWidth="2">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+            </button>
           </div>
           <div className="flex gap-2 mt-2 flex-wrap">
             <DamageBadge damage={lead.dins_damage} />

@@ -10,22 +10,24 @@ const TRACERFY_KEY = process.env.TRACERFY_API_KEY
 const TRACERFY_LOOKUP_URL = 'https://tracerfy.com/v1/api/trace/lookup/'
 
 export async function POST(request) {
-  const { lead_id, address, city, state, zip, user_id } = await request.json()
+  const { lead_id, address, city, state, zip, user_id, refetch } = await request.json()
 
   if (!lead_id || !address || !user_id) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Check if already unlocked
-  const { data: existing } = await adminSupabase
-    .from('unlocks')
-    .select('id')
-    .eq('user_id', user_id)
-    .eq('lead_id', lead_id)
-    .single()
+  // Check if already unlocked (skip check if refetching)
+  if (!refetch) {
+    const { data: existing } = await adminSupabase
+      .from('unlocks')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('lead_id', lead_id)
+      .single()
 
-  if (existing) {
-    return NextResponse.json({ error: 'Already unlocked' }, { status: 400 })
+    if (existing) {
+      return NextResponse.json({ error: 'Already unlocked' }, { status: 400 })
+    }
   }
 
   // Check credits
@@ -83,13 +85,16 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No contact data found for this address' }, { status: 404 })
     }
 
-    // Record the unlock (do NOT store contact data permanently)
-    await adminSupabase.from('unlocks').insert({
-      user_id,
-      lead_id,
-      credit_charged: traceData.credits_deducted || 5,
-    })
+    // Record the unlock (only if first time, not on refetch)
+    if (!refetch) {
+      await adminSupabase.from('unlocks').insert({
+        user_id,
+        lead_id,
+        credit_charged: traceData.credits_deducted || 5,
+      })
+    }
 
+    // Always increment credits used
     await adminSupabase.from('profiles').update({
       contact_unlocks: (profile.contact_unlocks || 0) + 1,
     }).eq('id', user_id)
