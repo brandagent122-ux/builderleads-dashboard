@@ -25,7 +25,8 @@ export default function MapPage() {
   useEffect(() => {
     async function load() {
       const ctx = await getUserContext()
-      const ids = ctx?.assignedLeadIds || null
+      if (!ctx) { setLoading(false); return }
+      const ids = ctx.assignedLeadIds
       const data = await getAllLeads({}, ids)
       setLeads(data.filter(l => l.latitude && l.longitude))
       setLoading(false)

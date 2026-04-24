@@ -12,7 +12,8 @@ export default function OutreachPage() {
   useEffect(() => {
     async function load() {
       const ctx = await getUserContext()
-      const ids = ctx?.assignedLeadIds || null
+      if (!ctx) { setLoading(false); return }
+      const ids = ctx.assignedLeadIds
       setAssignedIds(ids)
       const data = await getDrafts(filter === 'all' ? null : filter, ids)
       setDrafts(data)

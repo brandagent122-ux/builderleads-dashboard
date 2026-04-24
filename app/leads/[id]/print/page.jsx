@@ -32,7 +32,8 @@ export default function PrintLeadPage() {
   useEffect(() => {
     async function load() {
       const ctx = await getUserContext()
-      const ids = ctx?.assignedLeadIds || null
+      if (!ctx) { setLoading(false); return }
+      const ids = ctx.assignedLeadIds
       const data = await getLeadDetail(params.id, ids)
       setLead(data)
 

@@ -20,7 +20,8 @@ export default function CommandCenter() {
 
     async function load() {
       const ctx = await getUserContext()
-      const ids = ctx?.assignedLeadIds || null
+      if (!ctx) { setLoading(false); return }
+      const ids = ctx.assignedLeadIds
       const [s, l] = await Promise.all([getStats(ids), getTopLeads(20, ids)])
       const byAddr = {}
       l.forEach(lead => {

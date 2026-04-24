@@ -19,7 +19,8 @@ export default function LeadDetailPage() {
 
     async function load() {
       const ctx = await getUserContext()
-      const ids = ctx?.assignedLeadIds || null
+      if (!ctx) { setLead(null); setLoading(false); return }
+      const ids = ctx.assignedLeadIds
       const data = await getLeadDetail(params.id, ids)
       if (!data || !data.id) {
         setLead(null)
