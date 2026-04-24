@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-check'
 
 export async function POST(request) {
+  const admin = await requireAdmin(request)
+  if (!admin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   const { email, password, company_name, max_leads, trade } = await request.json()
 
   if (!email || !password) {
@@ -13,7 +19,6 @@ export async function POST(request) {
     process.env.SUPABASE_SERVICE_KEY
   )
 
-  // Create the auth user
   const { data, error } = await adminSupabase.auth.admin.createUser({
     email,
     password,
@@ -29,7 +34,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'User created but no ID returned' }, { status: 500 })
   }
 
-  // Update profile
   const profileUpdate = { role: 'client', tier: 'starter' }
   if (company_name) profileUpdate.company_name = company_name
   if (max_leads) profileUpdate.max_leads = parseInt(max_leads)
@@ -37,7 +41,6 @@ export async function POST(request) {
 
   await adminSupabase.from('profiles').update(profileUpdate).eq('id', userId)
 
-  // Auto-assign top N leads by score
   const leadCount = parseInt(max_leads) || 50
   const { data: topLeads } = await adminSupabase
     .from('scores')
@@ -46,11 +49,7 @@ export async function POST(request) {
     .limit(leadCount)
 
   if (topLeads && topLeads.length > 0) {
-    const assignments = topLeads.map(s => ({
-      user_id: userId,
-      lead_id: s.lead_id,
-    }))
-
+    const assignments = topLeads.map(s => ({ user_id: userId, lead_id: s.lead_id }))
     await adminSupabase.from('assigned_leads').insert(assignments)
   }
 

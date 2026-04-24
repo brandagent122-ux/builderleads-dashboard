@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-check'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,6 +8,9 @@ const adminSupabase = createClient(
 )
 
 export async function POST(request) {
+  const admin = await requireAdmin(request)
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
   const { action, user_id, lead_ids, preset, count } = await request.json()
 
   if (!user_id) {
@@ -102,6 +106,9 @@ export async function POST(request) {
 
 // GET: fetch assigned leads for a user
 export async function GET(request) {
+  const admin = await requireAdmin(request)
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('user_id')
 

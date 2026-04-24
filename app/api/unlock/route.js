@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getAuthUser } from '@/lib/auth-check'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -58,7 +59,17 @@ function transformQueueData(records) {
 }
 
 export async function POST(request) {
+  const authUser = await getAuthUser(request)
+  if (!authUser) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
   const { lead_id, address, city, state, zip, user_id, refetch } = await request.json()
+
+  // Verify the user_id matches the authenticated user (prevent impersonation)
+  if (user_id !== authUser.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
 
   if (!lead_id || !address || !user_id) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

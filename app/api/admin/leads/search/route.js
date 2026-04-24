@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-check'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,6 +8,9 @@ const adminSupabase = createClient(
 )
 
 export async function GET(request) {
+  const admin = await requireAdmin(request)
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search') || ''
   const minScore = parseInt(searchParams.get('min_score')) || 0
