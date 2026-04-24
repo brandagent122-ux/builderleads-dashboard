@@ -146,7 +146,7 @@ function KPITile({ icon, label, value, sub, accent }) {
       <div className={`icon-chip ${accent ? 'icon-chip-ember' : 'icon-chip-sunk'} mb-3`} style={{ color: accent ? 'var(--page)' : 'var(--ember)' }}>
         {icons[icon]}
       </div>
-      <div className="font-mono text-[11px] text-ink-3 tracking-wider uppercase">{label}</div>
+      <div className="font-mono text-[11px] tracking-wider uppercase" style={{ color: '#8B8B96' }}>{label}</div>
       <div className={`text-[38px] font-bold leading-none mt-1 tracking-tight ${accent ? 'text-ember' : 'text-ink-0'}`}>{value}</div>
       <div className="font-mono text-[11px] text-ink-3 mt-1">{sub}</div>
     </div>
