@@ -22,7 +22,7 @@ const STYLES = {
   satellite: 'mapbox/satellite-streets-v12',
 }
 
-export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'dark' }) {
+export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'dark', fitToLeads = false }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -109,7 +109,13 @@ export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'd
       marker.addTo(map)
       markersRef.current.push(marker)
     })
-  }, [leads, onSelect, mapStyle])
+
+    // Auto-fit to search results
+    if (fitToLeads && leads.length > 0 && leads.length <= 20) {
+      const bounds = L.latLngBounds(leads.map(l => [l.latitude, l.longitude]))
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
+    }
+  }, [leads, onSelect, mapStyle, fitToLeads])
 
   return <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'var(--r-card, 22px)', overflow: 'hidden' }} />
 }

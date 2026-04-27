@@ -24,6 +24,7 @@ export default function MapPage() {
   const [selectedLead, setSelectedLead] = useState(null)
   const [mapboxToken, setMapboxToken] = useState(null)
   const [mapStyle, setMapStyle] = useState('dark')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -48,7 +49,14 @@ export default function MapPage() {
   }, [])
 
   const f = FILTERS[activeFilter]
-  const filtered = leads.filter(l => l.score >= f.min && l.score <= f.max)
+  const filtered = leads.filter(l => {
+    if (l.score < f.min || l.score > f.max) return false
+    if (search) {
+      const s = search.toLowerCase()
+      return (l.address || '').toLowerCase().includes(s)
+    }
+    return true
+  })
   const totalValue = filtered.reduce((sum, l) => sum + (l.assessor_value || 0), 0)
 
   function getColor(score) {
@@ -69,7 +77,32 @@ export default function MapPage() {
         </div>
       </div>
 
-      <div className="card-raised p-2 flex gap-2 mb-4" style={{ borderRadius: 16 }}>
+      <div className="card-raised p-2 flex gap-2 mb-4 items-center" style={{ borderRadius: 16 }}>
+        <div style={{ position: 'relative', flex: '0 0 220px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555560" strokeWidth="2"
+            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search address..."
+            style={{
+              width: '100%', padding: '8px 10px 8px 32px', borderRadius: 12, fontSize: 12,
+              background: 'var(--card-sunk, #19191D)', border: '1px solid rgba(255,255,255,0.06)',
+              color: '#f0f0f0', outline: 'none', fontFamily: 'Inter, sans-serif',
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: '#555560', fontSize: 14 }}>
+              x
+            </button>
+          )}
+        </div>
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         {FILTERS.map((filter, i) => {
           const count = leads.filter(l => l.score >= filter.min && l.score <= filter.max).length
           return (
@@ -92,7 +125,7 @@ export default function MapPage() {
           <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
         ) : (
           <div className="card-raised overflow-hidden" style={{ height: '100%', borderRadius: 'var(--r-card, 22px)' }}>
-            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={mapboxToken} mapStyle={mapStyle} />
+            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={mapboxToken} mapStyle={mapStyle} fitToLeads={!!search} />
           </div>
         )}
 
