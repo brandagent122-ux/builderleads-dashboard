@@ -22,10 +22,15 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState(0)
   const [selectedLead, setSelectedLead] = useState(null)
+  const [mapboxToken, setMapboxToken] = useState(null)
 
   useEffect(() => {
     async function load() {
-      const ctx = await getUserContext()
+      const [ctx, tokenResp] = await Promise.all([
+        getUserContext(),
+        fetch('/api/mapbox').then(r => r.json()).catch(() => ({ token: '' })),
+      ])
+      setMapboxToken(tokenResp.token || '')
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
       const data = await getAllLeads({}, ids)
@@ -86,7 +91,7 @@ export default function MapPage() {
           <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
         ) : (
           <div className="card-raised overflow-hidden" style={{ height: '100%', borderRadius: 'var(--r-card, 22px)' }}>
-            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} />
+            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={mapboxToken} />
           </div>
         )}
 

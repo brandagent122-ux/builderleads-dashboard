@@ -35,6 +35,7 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
     })
 
     if (mapboxToken) {
+      console.log('[LeafletMap] Using Mapbox dark tiles, token starts with:', mapboxToken.substring(0, 10))
       L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
         maxZoom: 19,
         tileSize: 512,
