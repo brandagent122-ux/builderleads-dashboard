@@ -17,11 +17,18 @@ function getRadius(score) {
   return 4
 }
 
-export default function LeafletMap({ leads, onSelect, mapboxToken }) {
+const STYLES = {
+  dark: 'mapbox/dark-v11',
+  satellite: 'mapbox/satellite-streets-v12',
+}
+
+export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'dark' }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
+  const tileLayerRef = useRef(null)
 
+  // Initialize map once
   useEffect(() => {
     if (mapInstanceRef.current) return
 
@@ -34,37 +41,51 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
       wheelPxPerZoomLevel: 120,
     })
 
-    if (mapboxToken) {
-      console.log('[LeafletMap] Using Mapbox dark tiles, token starts with:', mapboxToken.substring(0, 10))
-      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
-        maxZoom: 19,
-        tileSize: 512,
-        zoomOffset: -1,
-        attribution: '',
-      }).addTo(map)
-    } else {
-      // Fallback to dark CartoDB tiles if no Mapbox token
-      console.warn('[LeafletMap] No Mapbox token, using CartoDB dark tiles')
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '',
-      }).addTo(map)
-    }
-
     mapInstanceRef.current = map
 
     return () => {
       map.remove()
       mapInstanceRef.current = null
     }
-  }, [mapboxToken])
+  }, [])
 
+  // Handle tile layer changes (style + token)
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+
+    // Remove old tile layer
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current)
+    }
+
+    if (mapboxToken) {
+      const style = STYLES[mapStyle] || STYLES.dark
+      tileLayerRef.current = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${style}/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
+        maxZoom: 19,
+        tileSize: 512,
+        zoomOffset: -1,
+        attribution: '',
+      }).addTo(map)
+    } else {
+      tileLayerRef.current = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '',
+      }).addTo(map)
+    }
+  }, [mapboxToken, mapStyle])
+
+  // Handle markers
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map) return
 
     markersRef.current.forEach(m => map.removeLayer(m))
     markersRef.current = []
+
+    const tooltipBg = mapStyle === 'satellite' ? 'rgba(0,0,0,0.8)' : '#212126'
 
     leads.forEach(lead => {
       const color = getColor(lead.score)
@@ -80,7 +101,7 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
       })
 
       marker.bindTooltip(
-        `<div style="background:#212126;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);font-family:JetBrains Mono,monospace;font-size:12px;font-weight:700;color:${color};text-align:center;min-width:32px">${lead.score}</div>`,
+        `<div style="background:${tooltipBg};border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);font-family:JetBrains Mono,monospace;font-size:12px;font-weight:700;color:${color};text-align:center;min-width:32px">${lead.score}</div>`,
         { direction: 'top', offset: [0, -10], className: 'clean-tooltip' }
       )
 
@@ -88,7 +109,7 @@ export default function LeafletMap({ leads, onSelect, mapboxToken }) {
       marker.addTo(map)
       markersRef.current.push(marker)
     })
-  }, [leads, onSelect])
+  }, [leads, onSelect, mapStyle])
 
   return <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'var(--r-card, 22px)', overflow: 'hidden' }} />
 }

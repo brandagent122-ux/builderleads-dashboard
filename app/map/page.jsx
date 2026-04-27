@@ -23,6 +23,7 @@ export default function MapPage() {
   const [activeFilter, setActiveFilter] = useState(0)
   const [selectedLead, setSelectedLead] = useState(null)
   const [mapboxToken, setMapboxToken] = useState(null)
+  const [mapStyle, setMapStyle] = useState('dark')
 
   useEffect(() => {
     async function load() {
@@ -91,7 +92,7 @@ export default function MapPage() {
           <div className="skeleton w-full h-full" style={{ borderRadius: 'var(--r-card, 22px)' }} />
         ) : (
           <div className="card-raised overflow-hidden" style={{ height: '100%', borderRadius: 'var(--r-card, 22px)' }}>
-            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={mapboxToken} />
+            <LeafletMap leads={filtered} onSelect={handleSelect} mapboxToken={mapboxToken} mapStyle={mapStyle} />
           </div>
         )}
 
@@ -152,6 +153,37 @@ export default function MapPage() {
             <div className="font-mono text-[10px] text-ink-3 tracking-wider">VISIBLE LEADS</div>
             <div className="text-xl font-bold text-ink-0">{filtered.length}</div>
           </div>
+        </div>
+
+        <div className="absolute bottom-4 right-4 z-[1000]">
+          <button
+            onClick={() => setMapStyle(mapStyle === 'dark' ? 'satellite' : 'dark')}
+            className="card-raised"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px', borderRadius: 12,
+              border: 'none', cursor: 'pointer',
+              background: 'var(--card, #212126)',
+              color: '#B8B8BF', fontSize: 11, fontWeight: 600,
+              fontFamily: 'JetBrains Mono, monospace',
+              letterSpacing: 0.5,
+            }}>
+            {mapStyle === 'dark' ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                Satellite
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>
+                </svg>
+                Dark Map
+              </>
+            )}
+          </button>
         </div>
       </div>
 
