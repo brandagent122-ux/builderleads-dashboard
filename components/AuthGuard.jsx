@@ -119,7 +119,7 @@ export default function AuthGuard({ children }) {
               <div className="text-sm font-semibold text-ink-0 tracking-tight">BuilderLeads</div>
             </div>
           </a>
-          {isAdmin && activeMarket && (
+          {activeMarket && (
             <div className="px-2 mb-2">
               <MarketSelector activeMarket={activeMarket} onSelect={handleMarketChange} />
             </div>
