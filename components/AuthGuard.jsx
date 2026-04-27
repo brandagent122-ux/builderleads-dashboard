@@ -3,11 +3,24 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase, getProfile } from '@/lib/supabase'
 import SidebarNav from '@/components/SidebarNav'
+import MarketSelector from '@/components/MarketSelector'
 
 export default function AuthGuard({ children }) {
   const [status, setStatus] = useState('loading')
+  const [activeMarket, setActiveMarket] = useState(null)
   const pathname = usePathname()
   const checkedRef = useRef(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('builderleads_market')
+    setActiveMarket(saved || 'palisades')
+  }, [])
+
+  function handleMarketChange(slug) {
+    setActiveMarket(slug)
+    localStorage.setItem('builderleads_market', slug)
+    window.dispatchEvent(new CustomEvent('market-changed', { detail: slug }))
+  }
 
   useEffect(() => {
     if (checkedRef.current && status === 'ready') return
@@ -94,15 +107,19 @@ export default function AuthGuard({ children }) {
     <div className="stage flex">
       <aside className="w-[232px] flex flex-col p-3 flex-shrink-0">
         <div className="card-raised p-4 flex flex-col flex-1" style={{ borderRadius: 'var(--r-pill)' }}>
-          <a href="/" className="flex items-center gap-3 px-2 mb-6">
+          <a href="/" className="flex items-center gap-3 px-2 mb-4">
             <div className="icon-chip icon-chip-ember">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#141416" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             </div>
             <div>
               <div className="text-sm font-semibold text-ink-0 tracking-tight">BuilderLeads</div>
-              <div className="font-mono text-[10px] text-ember tracking-wide">PALISADES FIRE INTEL</div>
             </div>
           </a>
+          {activeMarket && (
+            <div className="px-2 mb-2">
+              <MarketSelector activeMarket={activeMarket} onSelect={handleMarketChange} />
+            </div>
+          )}
           <SidebarNav />
           <div className="mt-4 px-2 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-moss animate-pulse" />
