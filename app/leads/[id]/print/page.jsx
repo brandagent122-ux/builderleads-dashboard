@@ -185,16 +185,38 @@ export default function PrintLeadPage() {
             </Grid>
           </Section>
 
-          <Section title="Fire Damage Intel">
-            <Grid>
-              <Cell label="DINS CLASSIFICATION" value={dmgLabel || '-'} />
-              <Cell label="STRUCTURE TYPE" value={lead.dins_structure_type || '-'} />
-              <Cell label="FIRE ZONE" value={lead.fire_zone_match ? 'Inside Perimeter' : 'Outside'} />
-              <Cell label="DISTANCE" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
-              <Cell label="DINS ACCURACY" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
-              <Cell label="DAMAGE FLAG" value={lead.fire_damage_flag || '-'} />
-            </Grid>
-          </Section>
+          {lead.fire_zone_match ? (
+            <Section title="Fire Damage Intel">
+              <Grid>
+                <Cell label="DINS CLASSIFICATION" value={dmgLabel || '-'} />
+                <Cell label="STRUCTURE TYPE" value={lead.dins_structure_type || '-'} />
+                <Cell label="FIRE ZONE" value="Inside Perimeter" />
+                <Cell label="DISTANCE" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
+                <Cell label="DINS ACCURACY" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
+                <Cell label="DAMAGE FLAG" value={lead.fire_damage_flag || '-'} />
+              </Grid>
+            </Section>
+          ) : (
+            <Section title="Permit Intel">
+              <Grid>
+                <Cell label="PERMIT TYPE" value={lead.permit_type || '-'} />
+                <Cell label="PERMIT STAGE" value={lead.permit_stage || '-'} />
+                <Cell label="PERMIT VALUE" value={lead.estimated_value ? `$${lead.estimated_value.toLocaleString()}` : '-'} />
+                <Cell label="CONTRACTOR" value={lead.contractor_name === 'Not in public record' ? 'None listed' : (lead.contractor_name || 'None listed')} />
+                <Cell label="OWNER OCCUPIED" value={lead.owner_occupied === true ? 'Yes' : lead.owner_occupied === false ? 'No' : '-'} />
+                <Cell label="PROJECT SCOPE" value={
+                  (lead.permit_description || '').toLowerCase().includes('adu') ? 'ADU / Accessory Dwelling' :
+                  (lead.permit_description || '').toLowerCase().includes('addition') ? 'Room Addition' :
+                  (lead.permit_description || '').toLowerCase().includes('kitchen') ? 'Kitchen Remodel' :
+                  (lead.permit_description || '').toLowerCase().includes('bathroom') ? 'Bathroom Remodel' :
+                  (lead.permit_description || '').toLowerCase().includes('pool') ? 'Pool / Spa' :
+                  lead.permit_type === 'Bldg-New' ? 'New Construction' :
+                  lead.permit_type === 'Bldg-Addition' ? 'Addition' :
+                  'Renovation / Repair'
+                } />
+              </Grid>
+            </Section>
+          )}
         </div>
 
         {/* Two-column: Zoning + Neighborhood */}

@@ -114,7 +114,7 @@ export default function LeadDetailPage() {
         <StreetView latitude={lead.latitude} longitude={lead.longitude} address={lead.address} />
       </div>
 
-      {/* Row 1: Property Details + Fire Damage */}
+      {/* Row 1: Property Details + Market-specific Intel */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Property details</h3>
@@ -130,17 +130,41 @@ export default function LeadDetailPage() {
           </div>
         </div>
 
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Fire damage intel</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Detail label="DINS classification" value={lead.dins_damage || '-'} />
-            <Detail label="Structure type" value={lead.dins_structure_type || '-'} />
-            <Detail label="Fire damage flag" value={lead.fire_damage_flag || '-'} />
-            <Detail label="Fire zone" value={lead.fire_zone_match ? 'Inside perimeter' : 'Outside'} />
-            <Detail label="Distance to perimeter" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
-            <Detail label="DINS match accuracy" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
+        {lead.fire_zone_match ? (
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-white mb-4">Fire damage intel</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Detail label="DINS classification" value={lead.dins_damage || '-'} />
+              <Detail label="Structure type" value={lead.dins_structure_type || '-'} />
+              <Detail label="Fire damage flag" value={lead.fire_damage_flag || '-'} />
+              <Detail label="Fire zone" value="Inside perimeter" />
+              <Detail label="Distance to perimeter" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
+              <Detail label="DINS match accuracy" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-white mb-4">Permit intel</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Detail label="Permit type" value={lead.permit_type || '-'} />
+              <Detail label="Permit stage" value={lead.permit_stage || '-'} />
+              <Detail label="Permit value" value={lead.estimated_value ? `$${lead.estimated_value.toLocaleString()}` : '-'} />
+              <Detail label="Contractor" value={lead.contractor_name === 'Not in public record' ? 'None listed' : (lead.contractor_name || 'None listed')} />
+              <Detail label="Owner occupied" value={lead.owner_occupied === true ? 'Yes' : lead.owner_occupied === false ? 'No' : '-'} />
+              <Detail label="Project scope" value={
+                (lead.permit_description || '').toLowerCase().includes('adu') ? 'ADU / Accessory Dwelling' :
+                (lead.permit_description || '').toLowerCase().includes('addition') ? 'Room Addition' :
+                (lead.permit_description || '').toLowerCase().includes('kitchen') ? 'Kitchen Remodel' :
+                (lead.permit_description || '').toLowerCase().includes('bathroom') ? 'Bathroom Remodel' :
+                (lead.permit_description || '').toLowerCase().includes('pool') ? 'Pool / Spa' :
+                (lead.permit_description || '').toLowerCase().includes('demo') ? 'Demolition' :
+                lead.permit_type === 'Bldg-New' ? 'New Construction' :
+                lead.permit_type === 'Bldg-Addition' ? 'Addition' :
+                'Renovation / Repair'
+              } />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Row 2: Zoning & Buildability + Neighborhood Activity */}
@@ -178,7 +202,7 @@ export default function LeadDetailPage() {
             <div className="col-span-2">
               <div className="text-xs text-slate-650 mb-1">Block status</div>
               <div className="text-sm text-white font-medium">
-                {lead.neighbor_permits_500ft >= 10 ? 'Active rebuild zone' :
+                {lead.neighbor_permits_500ft >= 10 ? (lead.fire_zone_match ? 'Active rebuild zone' : 'High construction activity') :
                  lead.neighbor_permits_500ft >= 5 ? 'Moderate activity' :
                  lead.neighbor_permits_500ft >= 1 ? 'Some activity' :
                  lead.neighbor_permits_500ft === 0 ? 'No nearby permits' : '-'}
