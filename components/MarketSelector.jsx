@@ -6,10 +6,12 @@ const MARKET_POSITIONS = {
   palisades:   { x: 38, y: 22, label: 'PAL' },
   westla:      { x: 58, y: 30, label: 'WLA' },
   dtla:        { x: 85, y: 32, label: 'DTLA' },
-  whittier:    { x: 112, y: 40, label: 'WHT' },
+  whittier:    { x: 115, y: 42, label: 'WHT' },
   palosverdes: { x: 52, y: 52, label: 'PV' },
   cerritos:    { x: 100, y: 50, label: 'CER' },
   longbeach:   { x: 82, y: 55, label: 'LB' },
+  lahabra:     { x: 125, y: 30, label: 'LH' },
+  haciendahts: { x: 118, y: 35, label: 'HH' },
 }
 
 export default function MarketSelector({ activeMarket, onSelect }) {
