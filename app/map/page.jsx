@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAllLeads, getUserContext } from '@/lib/supabase'
+import { getAllLeads, getUserContext, getActiveMarket } from '@/lib/supabase'
 import { logActivity } from '@/lib/activity'
 import dynamic from 'next/dynamic'
 
@@ -35,12 +35,17 @@ export default function MapPage() {
       setMapboxToken(tokenResp.token || '')
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
-      const data = await getAllLeads({}, ids)
+      const market = ctx.isAdmin ? getActiveMarket() : null
+      const data = await getAllLeads({}, ids, market)
       setLeads(data.filter(l => l.latitude && l.longitude))
       setLoading(false)
       logActivity('map_viewed', `${data.length} leads on map`)
     }
     load()
+
+    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); load() }
+    window.addEventListener('market-changed', onMarketChange)
+    return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])
 
   const handleSelect = useCallback((lead) => {

@@ -8,6 +8,7 @@ import MarketSelector from '@/components/MarketSelector'
 export default function AuthGuard({ children }) {
   const [status, setStatus] = useState('loading')
   const [activeMarket, setActiveMarket] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const pathname = usePathname()
   const checkedRef = useRef(false)
 
@@ -43,6 +44,9 @@ export default function AuthGuard({ children }) {
         if (p && !p.tos_accepted_at && pathname !== '/tos') {
           setStatus('needs-tos')
           return
+        }
+        if (p && p.role === 'admin') {
+          setIsAdmin(true)
         }
       }
 
@@ -115,7 +119,7 @@ export default function AuthGuard({ children }) {
               <div className="text-sm font-semibold text-ink-0 tracking-tight">BuilderLeads</div>
             </div>
           </a>
-          {activeMarket && (
+          {isAdmin && activeMarket && (
             <div className="px-2 mb-2">
               <MarketSelector activeMarket={activeMarket} onSelect={handleMarketChange} />
             </div>

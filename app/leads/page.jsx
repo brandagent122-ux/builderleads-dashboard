@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAllLeads, getUserContext } from '@/lib/supabase'
+import { getAllLeads, getUserContext, getActiveMarket } from '@/lib/supabase'
 import { logActivity } from '@/lib/activity'
 
 const TRADE_PRESETS = {
@@ -42,7 +42,8 @@ export default function AllLeadsPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
-      const data = await getAllLeads({}, ids)
+      const market = ctx.isAdmin ? getActiveMarket() : null
+      const data = await getAllLeads({}, ids, market)
       const preset = TRADE_PRESETS[trade]
       let filtered = data
       if (preset?.permit_types) filtered = filtered.filter(l => preset.permit_types.some(pt => l.permit_type?.includes(pt)))
@@ -65,6 +66,15 @@ export default function AllLeadsPage() {
     setLoading(true)
     load()
   }, [search, minScore, dinsFilter, trade])
+
+  useEffect(() => {
+    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); setMinScore(''); setDinsFilter(''); setTrade('all') }
+    window.addEventListener('market-changed', onMarketChange)
+    return () => window.removeEventListener('market-changed', onMarketChange)
+  }, [])
+
+  // Re-trigger load when trade/filters reset from market change
+  // The existing useEffect with [search, minScore, dinsFilter, trade] deps handles the reload
 
   function sortedLeads() {
     return [...leads].sort((a, b) => {

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getStats, getTopLeads, getUserContext } from '@/lib/supabase'
+import { getStats, getTopLeads, getUserContext, getActiveMarket } from '@/lib/supabase'
 
 export default function CommandCenter() {
   const [stats, setStats] = useState(null)
@@ -13,30 +13,36 @@ export default function CommandCenter() {
   const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
+  async function loadData() {
+    const ctx = await getUserContext()
+    if (!ctx) { setLoading(false); return }
+    setIsAdmin(ctx.isAdmin)
+    const ids = ctx.assignedLeadIds
+    const market = ctx.isAdmin ? getActiveMarket() : null
+    const [s, l] = await Promise.all([getStats(ids, market), getTopLeads(20, ids, market)])
+    const byAddr = {}
+    l.forEach(lead => {
+      if (!byAddr[lead.address] || lead.score > byAddr[lead.address].score) {
+        byAddr[lead.address] = { ...lead, permitCount: l.filter(x => x.address === lead.address).length }
+      }
+    })
+    setStats(s)
+    setLeads(Object.values(byAddr).sort((a, b) => b.score - a.score).slice(0, 10))
+    setLoading(false)
+  }
+
   useEffect(() => {
     const stored = localStorage.getItem('bl_seen_leads')
     const storedVisit = localStorage.getItem('bl_last_visit')
     if (stored) setSeenIds(new Set(JSON.parse(stored)))
     if (storedVisit) setLastVisit(new Date(storedVisit))
 
-    async function load() {
-      const ctx = await getUserContext()
-      if (!ctx) { setLoading(false); return }
-      setIsAdmin(ctx.isAdmin)
-      const ids = ctx.assignedLeadIds
-      const [s, l] = await Promise.all([getStats(ids), getTopLeads(20, ids)])
-      const byAddr = {}
-      l.forEach(lead => {
-        if (!byAddr[lead.address] || lead.score > byAddr[lead.address].score) {
-          byAddr[lead.address] = { ...lead, permitCount: l.filter(x => x.address === lead.address).length }
-        }
-      })
-      setStats(s)
-      setLeads(Object.values(byAddr).sort((a, b) => b.score - a.score).slice(0, 10))
-      setLoading(false)
-    }
-    load()
+    loadData()
     localStorage.setItem('bl_last_visit', new Date().toISOString())
+
+    const onMarketChange = () => { setLoading(true); loadData() }
+    window.addEventListener('market-changed', onMarketChange)
+    return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])
 
   function markSeen(id) {

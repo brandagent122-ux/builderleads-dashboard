@@ -3,6 +3,16 @@ import { NextResponse } from 'next/server'
 const GOOGLE_KEY = process.env.GOOGLE_STREETVIEW_KEY
 
 export async function GET(request) {
+  // Require auth to prevent credit abuse
+  const authHeader = request.headers.get('cookie') || ''
+  if (!authHeader.includes('sb-')) {
+    // Allow if referer is from our own domain (browser requests from lead detail page)
+    const referer = request.headers.get('referer') || ''
+    if (!referer.includes('builderleads') && !referer.includes('vercel.app') && !referer.includes('localhost')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  }
+
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get('lat')
   const lng = searchParams.get('lng')

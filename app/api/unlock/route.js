@@ -26,6 +26,25 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
+  // Verify user has access to this lead
+  const { data: assignment } = await adminSupabase
+    .from('assigned_leads')
+    .select('id')
+    .eq('user_id', user_id)
+    .eq('lead_id', lead_id)
+    .single()
+
+  // Allow admin to bypass assignment check
+  const { data: userProfile } = await adminSupabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user_id)
+    .single()
+
+  if (!assignment && userProfile?.role !== 'admin') {
+    return NextResponse.json({ error: 'Lead not assigned to you' }, { status: 403 })
+  }
+
   // Check credits
   const { data: profile } = await adminSupabase
     .from('profiles')

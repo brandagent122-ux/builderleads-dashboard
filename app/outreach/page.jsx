@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getDrafts, updateDraftStatus, getUserContext } from '@/lib/supabase'
+import { getDrafts, updateDraftStatus, getUserContext, getActiveMarket } from '@/lib/supabase'
 
 export default function OutreachPage() {
   const [drafts, setDrafts] = useState([])
@@ -14,14 +14,21 @@ export default function OutreachPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
+      const market = ctx.isAdmin ? getActiveMarket() : null
       setAssignedIds(ids)
-      const data = await getDrafts(filter === 'all' ? null : filter, ids)
+      const data = await getDrafts(filter === 'all' ? null : filter, ids, market)
       setDrafts(data)
       setLoading(false)
     }
     setLoading(true)
     load()
   }, [filter])
+
+  useEffect(() => {
+    const onMarketChange = () => { setLoading(true); setDrafts([]); setFilter('all') }
+    window.addEventListener('market-changed', onMarketChange)
+    return () => window.removeEventListener('market-changed', onMarketChange)
+  }, [])
 
   async function handleStatusUpdate(id, status) {
     await updateDraftStatus(id, status)
