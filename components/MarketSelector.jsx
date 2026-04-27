@@ -3,15 +3,19 @@ import { useState, useEffect } from 'react'
 
 // Approximate positions on a 160x70 SVG for SoCal areas
 const MARKET_POSITIONS = {
-  palisades:   { x: 38, y: 22, label: 'PAL' },
-  westla:      { x: 58, y: 30, label: 'WLA' },
-  dtla:        { x: 85, y: 32, label: 'DTLA' },
-  whittier:    { x: 115, y: 42, label: 'WHT' },
-  palosverdes: { x: 52, y: 52, label: 'PV' },
-  cerritos:    { x: 100, y: 50, label: 'CER' },
-  longbeach:   { x: 82, y: 55, label: 'LB' },
-  lahabra:     { x: 125, y: 30, label: 'LH' },
-  haciendahts: { x: 118, y: 35, label: 'HH' },
+  palisades:     { x: 30, y: 20, label: 'PAL' },
+  westla:        { x: 45, y: 32, label: 'WLA' },
+  venice:        { x: 38, y: 38, label: 'VEN' },
+  westchester:   { x: 40, y: 48, label: 'WCH' },
+  hollywood:     { x: 65, y: 22, label: 'HWD' },
+  encino:        { x: 52, y: 10, label: 'ENC' },
+  shermanoaks:   { x: 65, y: 12, label: 'SO' },
+  studiocity:    { x: 75, y: 14, label: 'SC' },
+  woodlandhills: { x: 38, y: 8, label: 'WH' },
+  southla:       { x: 75, y: 42, label: 'SLA' },
+  sanpedro:      { x: 72, y: 58, label: 'SP' },
+  wilmington:    { x: 65, y: 55, label: 'WLM' },
+  harborcity:    { x: 58, y: 55, label: 'HC' },
 }
 
 export default function MarketSelector({ activeMarket, onSelect }) {
