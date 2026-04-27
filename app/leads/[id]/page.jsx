@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import UnlockButton from '@/components/UnlockButton'
 import NotesPanel from '@/components/NotesPanel'
+import StreetView from '@/components/StreetView'
 import { useParams } from 'next/navigation'
 import { getLeadDetail, updateDraftStatus, getUserContext } from '@/lib/supabase'
 import { logActivity } from '@/lib/activity'
@@ -106,6 +107,11 @@ export default function LeadDetailPage() {
           </div>
           <div className="text-xs text-slate-500 mt-1">Score</div>
         </div>
+      </div>
+
+      {/* Street View */}
+      <div className="mb-6">
+        <StreetView latitude={lead.latitude} longitude={lead.longitude} address={lead.address} />
       </div>
 
       {/* Row 1: Property Details + Fire Damage */}
