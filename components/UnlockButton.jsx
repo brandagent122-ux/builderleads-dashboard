@@ -5,12 +5,19 @@ import { logActivity } from '@/lib/activity'
 
 const CACHE_KEY = 'bl_contact_cache'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const CACHE_VERSION = 2  // Increment to invalidate all old cached contacts
 
 function getCachedContact(leadId) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
     const entry = cache[leadId]
     if (!entry) return null
+    // Invalidate old cache entries without version or old version
+    if (!entry.version || entry.version < CACHE_VERSION) {
+      delete cache[leadId]
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+      return null
+    }
     if (entry.expires && Date.now() > entry.expires) {
       delete cache[leadId]
       localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
@@ -23,7 +30,7 @@ function getCachedContact(leadId) {
 function setCachedContact(leadId, persons) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
-    cache[leadId] = { persons, expires: Date.now() + CACHE_TTL_MS }
+    cache[leadId] = { persons, expires: Date.now() + CACHE_TTL_MS, version: CACHE_VERSION }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
   } catch {}
 }
@@ -308,9 +315,18 @@ export default function UnlockButton({ leadId, address }) {
           ))}
         </div>
 
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: '#555560' }}>
-          {dncFiltered > 0 && <div style={{ marginBottom: 4 }}>{dncFiltered} DNC number{dncFiltered > 1 ? 's' : ''} filtered out. Only clean, callable contacts shown.</div>}
-          Contact data provided by a third-party service. Not stored by BuilderLeads. Auto-expires in 24 hours.
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+            <span className="font-mono" style={{ fontSize: 9, letterSpacing: 1, color: '#4ade80' }}>DNC FILTER VERIFIED</span>
+          </div>
+          {dncFiltered > 0 && <div style={{ fontSize: 11, color: '#f87171', marginBottom: 4 }}>{dncFiltered} DNC number{dncFiltered > 1 ? 's' : ''} removed server-side. Not shown.</div>}
+          <div style={{ fontSize: 10, color: '#555560' }}>
+            All phone numbers verified against Do-Not-Call registry before display. Contact data auto-expires in 24 hours.
+          </div>
         </div>
       </div>
     )

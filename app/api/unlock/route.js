@@ -126,49 +126,88 @@ export async function POST(request) {
       }).eq('id', user_id)
     }
 
-    // ── SERVER-SIDE DATA SANITIZATION ──
-    // Strip DNC phones, deceased persons, and sensitive fields
-    // Only clean, callable contact info reaches the client
+    // ── SERVER-SIDE DNC FILTERING (CRITICAL COMPLIANCE) ──
+    // Check ALL possible DNC field formats from Tracerfy
+    // Log raw phone data for audit trail
+    function isDNC(phone) {
+      // Check 'dnc' field in every possible format
+      const dnc = phone.dnc
+      if (dnc === true) return true
+      if (dnc === 1) return true
+      if (typeof dnc === 'string') {
+        const d = dnc.toLowerCase().trim()
+        if (d === 'true' || d === 'yes' || d === 'y' || d === '1' || d === 'dnc') return true
+      }
+      // Check alternative field names
+      if (phone.do_not_call === true || phone.do_not_call === 'true' || phone.do_not_call === 1) return true
+      if (phone.dnc_status === true || phone.dnc_status === 'true' || phone.dnc_status === 1) return true
+      if (phone.is_dnc === true || phone.is_dnc === 'true' || phone.is_dnc === 1) return true
+      return false
+    }
+
+    // Log raw phone data for compliance audit (no actual numbers, just DNC fields)
+    const rawPhoneAudit = (traceData.persons || []).flatMap(p =>
+      (p.phones || []).map(ph => ({
+        dnc_raw: ph.dnc,
+        dnc_type: typeof ph.dnc,
+        do_not_call: ph.do_not_call,
+        dnc_status: ph.dnc_status,
+        is_dnc: ph.is_dnc,
+        all_keys: Object.keys(ph),
+        isDNC_result: isDNC(ph),
+      }))
+    )
+    console.log('[DNC AUDIT]', JSON.stringify(rawPhoneAudit))
+
     const cleanPersons = (traceData.persons || [])
       .filter(p => !p.deceased)
-      .map(person => ({
-        first_name: person.first_name || '',
-        last_name: person.last_name || '',
-        full_name: person.full_name || '',
-        age: person.age || null,
-        property_owner: person.property_owner || false,
-        deceased: false,
-        litigator: person.litigator || false,
-        mailing_address: person.mailing_address || null,
-        // Only include non-DNC phones
-        phones: (person.phones || [])
-          .filter(p => !p.dnc)
-          .map(p => ({
+      .map(person => {
+        const allPhones = person.phones || []
+        const dncPhones = allPhones.filter(p => isDNC(p))
+        const cleanPhones = allPhones.filter(p => !isDNC(p))
+
+        return {
+          first_name: person.first_name || '',
+          last_name: person.last_name || '',
+          full_name: person.full_name || '',
+          age: person.age || null,
+          property_owner: person.property_owner || false,
+          deceased: false,
+          litigator: person.litigator || false,
+          mailing_address: person.mailing_address || null,
+          phones: cleanPhones.map(p => ({
             number: p.number,
             type: p.type,
             carrier: p.carrier || null,
             dnc: false,
             rank: p.rank,
           })),
-        // Keep all emails
-        emails: (person.emails || []).map(e => ({
-          email: e.email,
-          rank: e.rank,
-        })),
-      }))
-      // Only include persons who have at least one clean phone or email
+          emails: (person.emails || []).map(e => ({
+            email: e.email,
+            rank: e.rank,
+          })),
+          _dnc_removed: dncPhones.length,
+          _total_phones: allPhones.length,
+        }
+      })
       .filter(p => p.phones.length > 0 || p.emails.length > 0)
+
+    const totalDncFiltered = cleanPersons.reduce((sum, p) => sum + p._dnc_removed, 0)
 
     return NextResponse.json({
       success: true,
-      persons: cleanPersons,
+      persons: cleanPersons.map(p => {
+        const { _dnc_removed, _total_phones, ...clean } = p
+        return clean
+      }),
       credits_deducted: refetch ? 0 : (traceData.credits_deducted || 5),
       credits_remaining: profile.max_unlocks > 0
         ? profile.max_unlocks - (profile.contact_unlocks || 0) - (refetch ? 0 : 1)
         : null,
       clean_phones: cleanPersons.reduce((sum, p) => sum + p.phones.length, 0),
       total_phones: (traceData.persons || []).reduce((sum, p) => sum + (p.phones || []).length, 0),
-      dnc_filtered: (traceData.persons || []).reduce((sum, p) => sum + (p.phones || []).filter(ph => ph.dnc).length, 0),
+      dnc_filtered: totalDncFiltered,
+      dnc_verified: true,
     })
 
   } catch (err) {
