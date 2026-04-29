@@ -225,7 +225,7 @@ export default function UnlockButton({ leadId, address }) {
 
     const parts = address.split(',').map(s => s.trim())
     const streetAddr = parts[0] || address
-    const city = parts[1] || 'Pacific Palisades'
+    const city = parts[1] || 'Los Angeles'
     const stateZip = parts[2] || 'CA'
     const stateParts = stateZip.split(' ')
     const state = stateParts[0] || 'CA'

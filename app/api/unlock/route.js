@@ -78,7 +78,7 @@ export async function POST(request) {
     // Use Instant Trace Lookup (5 credits, includes DNC + carrier + age)
     const payload = {
       address: address,
-      city: city || 'Pacific Palisades',
+      city: city || 'Los Angeles',
       state: state || 'CA',
       find_owner: true,
     }
