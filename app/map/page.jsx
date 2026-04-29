@@ -17,26 +17,7 @@ const FILTERS = [
   { label: '<50', min: 0, max: 49 },
 ]
 
-// Center coordinates and zoom for each market
-const MARKET_CENTERS = {
-  all:           { lat: 34.00, lng: -118.40, zoom: 10 },
-  palisades:     { lat: 34.05, lng: -118.53, zoom: 13 },
-  westla:        { lat: 34.04, lng: -118.44, zoom: 14 },
-  sanpedro:      { lat: 33.73, lng: -118.29, zoom: 13 },
-  wilmington:    { lat: 33.78, lng: -118.26, zoom: 14 },
-  harborcity:    { lat: 33.79, lng: -118.30, zoom: 14 },
-  encino:        { lat: 34.16, lng: -118.50, zoom: 13 },
-  shermanoaks:   { lat: 34.15, lng: -118.45, zoom: 13 },
-  studiocity:    { lat: 34.14, lng: -118.39, zoom: 14 },
-  woodlandhills: { lat: 34.17, lng: -118.60, zoom: 13 },
-  venice:        { lat: 33.99, lng: -118.47, zoom: 14 },
-  westchester:   { lat: 33.96, lng: -118.40, zoom: 13 },
-  southla:       { lat: 33.96, lng: -118.27, zoom: 13 },
-  hollywood:     { lat: 34.10, lng: -118.33, zoom: 14 },
-}
-
 export default function MapPage() {
-  const [allLeads, setAllLeads] = useState([])
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState(0)
@@ -48,10 +29,11 @@ export default function MapPage() {
   const [selectedCity, setSelectedCity] = useState('all')
   const [flyTo, setFlyTo] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [userCtx, setUserCtx] = useState(null)
 
-  // Load all data once
+  // Initial load
   useEffect(() => {
-    async function load() {
+    async function init() {
       const [ctx, tokenResp, marketsResp] = await Promise.all([
         getUserContext(),
         fetch('/api/mapbox').then(r => r.json()).catch(() => ({ token: '' })),
@@ -61,83 +43,82 @@ export default function MapPage() {
       setMarkets(marketsResp.markets || [])
       if (!ctx) { setLoading(false); return }
       setIsAdmin(ctx.isAdmin)
-      const ids = ctx.assignedLeadIds
+      setUserCtx(ctx)
 
-      // Admin: load all leads across all markets
-      // Client: load only assigned leads
-      let data
-      if (ctx.isAdmin) {
-        data = await getAllLeads({}, null, null)
-      } else {
-        data = await getAllLeads({}, ids, null)
-      }
+      // Load leads for the active sidebar market
+      const market = ctx.isAdmin ? getActiveMarket() : null
+      setSelectedCity(market || 'all')
+      const data = await getAllLeads({}, ctx.assignedLeadIds, market)
       const withCoords = data.filter(l => l.latitude && l.longitude)
-      setAllLeads(withCoords)
       setLeads(withCoords)
       setLoading(false)
       logActivity('map_viewed', `${withCoords.length} leads on map`)
 
-      // Initial fly to show all leads
+      // Fly to fit leads
       if (withCoords.length > 0) {
-        setFlyTo({ lat: 34.00, lng: -118.40, zoom: 10 })
+        flyToLeads(withCoords)
       }
     }
-    load()
+    init()
   }, [])
 
-  // Handle city filter
-  function handleCityChange(slug) {
-    setSelectedCity(slug)
+  function flyToLeads(leadsArr, maxZoom = 14) {
+    if (!leadsArr || leadsArr.length === 0) return
+    const lats = leadsArr.map(l => l.latitude)
+    const lngs = leadsArr.map(l => l.longitude)
+    setFlyTo({
+      bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+      maxZoom,
+      _t: Date.now(),
+    })
+  }
+
+  // Fetch leads for a specific market
+  async function loadMarket(slug) {
+    if (!userCtx) return
+    setLoading(true)
     setSelectedLead(null)
     setSearch('')
 
-    if (slug === 'all') {
-      setLeads(allLeads)
-      // Fly to show all of LA
-      if (allLeads.length > 0) {
-        const lats = allLeads.map(l => l.latitude)
-        const lngs = allLeads.map(l => l.longitude)
-        setFlyTo({
-          bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-          maxZoom: 12,
-        })
-      }
-    } else {
-      const cityLeads = allLeads.filter(l => l.market === slug)
-      setLeads(cityLeads)
+    const market = slug === 'all' ? null : slug
+    const data = await getAllLeads({}, userCtx.assignedLeadIds, market)
+    const withCoords = data.filter(l => l.latitude && l.longitude)
+    setLeads(withCoords)
+    setLoading(false)
 
-      if (cityLeads.length > 0) {
-        // Fly to city's leads
-        const lats = cityLeads.map(l => l.latitude)
-        const lngs = cityLeads.map(l => l.longitude)
-        setFlyTo({
-          bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-          maxZoom: 15,
-        })
-      } else {
-        // No leads yet, fly to market center
-        const center = MARKET_CENTERS[slug]
-        if (center) setFlyTo(center)
-      }
+    if (withCoords.length > 0) {
+      flyToLeads(withCoords, slug === 'all' ? 11 : 14)
     }
+  }
+
+  function handleCityChange(slug) {
+    setSelectedCity(slug)
+    loadMarket(slug)
   }
 
   // Listen for sidebar market changes
   useEffect(() => {
     const onMarketChange = (e) => {
       const slug = e.detail || 'palisades'
-      handleCityChange(slug)
+      setSelectedCity(slug)
+      loadMarket(slug)
     }
     window.addEventListener('market-changed', onMarketChange)
     return () => window.removeEventListener('market-changed', onMarketChange)
-  }, [allLeads])
+  }, [userCtx])
+
+  // Auto-zoom on search
+  useEffect(() => {
+    if (search && filtered.length > 0 && filtered.length <= 20) {
+      flyToLeads(filtered, 16)
+    }
+  }, [search])
 
   const handleSelect = useCallback((lead) => {
     setSelectedLead(lead)
     if (lead) logActivity('map_lead_clicked', lead.address, lead.id)
   }, [])
 
-  // Apply score filter and search
   const f = FILTERS[activeFilter]
   const filtered = leads.filter(l => {
     if (l.score < f.min || l.score > f.max) return false
@@ -147,18 +128,6 @@ export default function MapPage() {
     }
     return true
   })
-
-  // Auto-zoom on search
-  useEffect(() => {
-    if (search && filtered.length > 0 && filtered.length <= 20) {
-      const lats = filtered.map(l => l.latitude)
-      const lngs = filtered.map(l => l.longitude)
-      setFlyTo({
-        bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-        maxZoom: 16,
-      })
-    }
-  }, [search, filtered.length])
 
   const totalValue = filtered.reduce((sum, l) => sum + (l.assessor_value || 0), 0)
   const cityLabel = selectedCity === 'all' ? 'All Markets' : (markets.find(m => m.slug === selectedCity)?.name || selectedCity)
@@ -176,7 +145,7 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink-0 tracking-tight">Map View</h1>
           <p className="font-mono text-[12px] text-ink-2 mt-1 tracking-wider uppercase">
-            {filtered.length} LEADS {selectedCity !== 'all' && `\u00B7 ${cityLabel.toUpperCase()}`} {activeFilter > 0 && `\u00B7 SCORE ${f.label}`} \u00B7 ${totalValue >= 1e9 ? `$${(totalValue / 1e9).toFixed(1)}B` : `$${(totalValue / 1e6).toFixed(0)}M`} VALUE
+            {filtered.length} LEADS {selectedCity !== 'all' && `\u00B7 ${cityLabel.toUpperCase()}`} {activeFilter > 0 && `\u00B7 SCORE ${f.label}`} \u00B7 {totalValue >= 1e9 ? `$${(totalValue / 1e9).toFixed(1)}B` : `$${(totalValue / 1e6).toFixed(0)}M`} VALUE
           </p>
         </div>
       </div>
@@ -216,9 +185,7 @@ export default function MapPage() {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search address..."
             style={{
               width: '100%', padding: '8px 10px 8px 32px', borderRadius: 12, fontSize: 12,
@@ -265,7 +232,7 @@ export default function MapPage() {
           </div>
         )}
 
-        {/* Lead count card */}
+        {/* Lead count */}
         <div className="absolute top-4 left-4 z-[1000]">
           <div className="card-raised px-4 py-3" style={{ borderRadius: 14 }}>
             <div className="font-mono text-[10px] text-ink-3 tracking-wider">VISIBLE LEADS</div>
@@ -289,37 +256,21 @@ export default function MapPage() {
 
         {/* Satellite toggle */}
         <div className="absolute bottom-4 right-4 z-[1000]">
-          <button
-            onClick={() => setMapStyle(mapStyle === 'dark' ? 'satellite' : 'dark')}
-            className="card-raised"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 14px', borderRadius: 12,
-              border: 'none', cursor: 'pointer',
-              background: 'var(--card, #212126)',
-              color: '#B8B8BF', fontSize: 11, fontWeight: 600,
-              fontFamily: 'JetBrains Mono, monospace',
-              letterSpacing: 0.5,
+          <button onClick={() => setMapStyle(mapStyle === 'dark' ? 'satellite' : 'dark')}
+            className="card-raised" style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 12,
+              border: 'none', cursor: 'pointer', background: 'var(--card, #212126)',
+              color: '#B8B8BF', fontSize: 11, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace', letterSpacing: 0.5,
             }}>
             {mapStyle === 'dark' ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                </svg>
-                Satellite
-              </>
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Satellite</>
             ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>
-                </svg>
-                Dark Map
-              </>
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7A3D" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>Dark Map</>
             )}
           </button>
         </div>
 
-        {/* Selected lead detail card */}
+        {/* Selected lead card */}
         {selectedLead && (
           <div className="absolute bottom-4 left-4 z-[1000]" style={{ width: 320 }}>
             <div className="card-raised p-4" style={{ borderRadius: 16, borderLeft: `3px solid ${getColor(selectedLead.score)}` }}>
@@ -330,18 +281,14 @@ export default function MapPage() {
               <div className="flex gap-2 flex-wrap mb-2">
                 <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ background: '#FF7A3D15', color: '#FF7A3D' }}>{selectedLead.permit_type}</span>
                 <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ background: '#3b82f615', color: '#60a5fa' }}>{selectedLead.permit_stage}</span>
-                {selectedLead.market && selectedLead.market !== 'palisades' && (
-                  <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ background: '#a855f715', color: '#c084fc' }}>{selectedLead.market}</span>
-                )}
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                 {selectedLead.assessor_value > 0 && <div><span className="text-ink-3">Value:</span> <span className="text-ink-1">${(selectedLead.assessor_value / 1e6).toFixed(2)}M</span></div>}
                 {selectedLead.sqft > 0 && <div><span className="text-ink-3">Sqft:</span> <span className="text-ink-1">{selectedLead.sqft.toLocaleString()}</span></div>}
                 {selectedLead.dins_damage && <div><span className="text-ink-3">Damage:</span> <span className="text-ink-1">{selectedLead.dins_damage}</span></div>}
-                {selectedLead.contractor_name && <div><span className="text-ink-3">GC:</span> <span className="text-ink-1">{selectedLead.contractor_name === 'Not in public record' ? 'None listed' : selectedLead.contractor_name}</span></div>}
               </div>
               <a href={`/leads/${selectedLead.id}`} className="block mt-3 text-center text-[11px] font-mono font-semibold text-ember hover:underline">
-                VIEW FULL LEAD \u2192
+                VIEW FULL LEAD →
               </a>
             </div>
           </div>
