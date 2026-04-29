@@ -84,7 +84,7 @@ export default function LeadDetailPage() {
                 <rect x="6" y="14" width="12" height="8"/>
               </svg>
             </button>
-            <DraftOutreachButton leadId={parseInt(params.id)} />
+            <DraftOutreachButton leadId={parseInt(params.id)} address={lead.address} />
           </div>
           <div className="flex gap-2 mt-2 flex-wrap">
             {lead.fire_zone_match && <DamageBadge damage={lead.dins_damage} />}
