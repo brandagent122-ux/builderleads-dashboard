@@ -22,82 +22,77 @@ const STYLES = {
   satellite: 'mapbox/satellite-streets-v12',
 }
 
-export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'dark', fitToLeads = false }) {
+export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'dark', flyTo = null }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
   const tileLayerRef = useRef(null)
+  const prevFlyRef = useRef(null)
 
-  // Initialize map once
   useEffect(() => {
     if (mapInstanceRef.current) return
-
     const map = L.map(mapRef.current, {
-      center: [34.05, -118.53],
-      zoom: 13,
-      zoomControl: true,
-      zoomSnap: 0.5,
+      center: [34.05, -118.40],
+      zoom: 11,
+      zoomControl: false,
+      zoomSnap: 0.25,
       zoomDelta: 0.5,
       wheelPxPerZoomLevel: 120,
     })
-
+    L.control.zoom({ position: 'bottomleft' }).addTo(map)
     mapInstanceRef.current = map
-
-    return () => {
-      map.remove()
-      mapInstanceRef.current = null
-    }
+    return () => { map.remove(); mapInstanceRef.current = null }
   }, [])
 
-  // Handle tile layer changes (style + token)
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map) return
-
-    // Remove old tile layer
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current)
-    }
-
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
     if (mapboxToken) {
       const style = STYLES[mapStyle] || STYLES.dark
       tileLayerRef.current = L.tileLayer(
         `https://api.mapbox.com/styles/v1/${style}/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
-        maxZoom: 19,
-        tileSize: 512,
-        zoomOffset: -1,
-        attribution: '',
+        maxZoom: 19, tileSize: 512, zoomOffset: -1, attribution: '',
       }).addTo(map)
     } else {
       tileLayerRef.current = L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '',
+        maxZoom: 19, attribution: '',
       }).addTo(map)
     }
   }, [mapboxToken, mapStyle])
 
-  // Handle markers
+  // Fly animation
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !flyTo) return
+    const key = JSON.stringify(flyTo)
+    if (key === prevFlyRef.current) return
+    prevFlyRef.current = key
+
+    if (flyTo.bounds) {
+      map.flyToBounds(flyTo.bounds, { padding: [60, 60], maxZoom: flyTo.maxZoom || 14, duration: 1.5 })
+    } else if (flyTo.lat && flyTo.lng) {
+      map.flyTo([flyTo.lat, flyTo.lng], flyTo.zoom || 13, { duration: 1.5, easeLinearity: 0.25 })
+    }
+  }, [flyTo])
+
+  // Markers with staggered entrance
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map) return
-
     markersRef.current.forEach(m => map.removeLayer(m))
     markersRef.current = []
 
     const tooltipBg = mapStyle === 'satellite' ? 'rgba(0,0,0,0.8)' : '#212126'
+    const sorted = [...leads].sort((a, b) => a.score - b.score)
 
-    leads.forEach(lead => {
+    sorted.forEach((lead, index) => {
       const color = getColor(lead.score)
-      const radius = getRadius(lead.score)
+      const finalRadius = getRadius(lead.score)
 
       const marker = L.circleMarker([lead.latitude, lead.longitude], {
-        radius,
-        fillColor: color,
-        fillOpacity: 0.85,
-        color: color,
-        weight: 2,
-        opacity: 0.4,
+        radius: 0, fillColor: color, fillOpacity: 0, color: color, weight: 2, opacity: 0,
       })
 
       marker.bindTooltip(
@@ -108,14 +103,30 @@ export default function LeafletMap({ leads, onSelect, mapboxToken, mapStyle = 'd
       marker.on('click', () => onSelect(lead))
       marker.addTo(map)
       markersRef.current.push(marker)
+
+      // Staggered entrance: pins appear one by one
+      const delay = Math.min(index * 4, 800)
+      setTimeout(() => {
+        marker.setStyle({ radius: finalRadius, fillOpacity: 0.85, opacity: 0.4 })
+      }, 300 + delay)
     })
+  }, [leads, onSelect, mapStyle])
 
-    // Auto-fit to search results
-    if (fitToLeads && leads.length > 0 && leads.length <= 20) {
-      const bounds = L.latLngBounds(leads.map(l => [l.latitude, l.longitude]))
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
-    }
-  }, [leads, onSelect, mapStyle, fitToLeads])
-
-  return <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'var(--r-card, 22px)', overflow: 'hidden' }} />
+  return (
+    <>
+      <style>{`
+        path.leaflet-interactive {
+          transition: r 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                      fill-opacity 0.6s ease,
+                      stroke-opacity 0.6s ease !important;
+        }
+        .clean-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+        .clean-tooltip::before { display: none !important; }
+        .leaflet-control-zoom { border: none !important; border-radius: 12px !important; overflow: hidden !important; box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important; }
+        .leaflet-control-zoom a { background: #212126 !important; color: #888 !important; border: none !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 16px !important; }
+        .leaflet-control-zoom a:hover { background: #2a2a30 !important; color: #f0f0f0 !important; }
+      `}</style>
+      <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'var(--r-card, 22px)', overflow: 'hidden' }} />
+    </>
+  )
 }
