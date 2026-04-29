@@ -11,6 +11,7 @@ export default function CommandCenter() {
   const [lastVisit, setLastVisit] = useState(null)
   const [showBrief, setShowBrief] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [marketVersion, setMarketVersion] = useState(0)
   const router = useRouter()
 
   async function loadData() {
@@ -40,10 +41,17 @@ export default function CommandCenter() {
     loadData()
     localStorage.setItem('bl_last_visit', new Date().toISOString())
 
-    const onMarketChange = () => { setLoading(true); loadData() }
+    const onMarketChange = () => { setLoading(true); setMarketVersion(v => v + 1) }
     window.addEventListener('market-changed', onMarketChange)
     return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])
+
+  useEffect(() => {
+    if (marketVersion > 0) {
+      setLoading(true)
+      loadData()
+    }
+  }, [marketVersion])
 
   function markSeen(id) {
     const updated = new Set(seenIds)

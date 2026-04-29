@@ -8,6 +8,7 @@ export default function OutreachPage() {
   const [filter, setFilter] = useState('all')
   const [expanded, setExpanded] = useState(null)
   const [assignedIds, setAssignedIds] = useState(null)
+  const [marketVersion, setMarketVersion] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -22,10 +23,10 @@ export default function OutreachPage() {
     }
     setLoading(true)
     load()
-  }, [filter])
+  }, [filter, marketVersion])
 
   useEffect(() => {
-    const onMarketChange = () => { setLoading(true); setDrafts([]); setFilter('all') }
+    const onMarketChange = () => { setLoading(true); setDrafts([]); setFilter('all'); setMarketVersion(v => v + 1) }
     window.addEventListener('market-changed', onMarketChange)
     return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])

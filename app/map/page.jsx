@@ -25,6 +25,7 @@ export default function MapPage() {
   const [mapboxToken, setMapboxToken] = useState(null)
   const [mapStyle, setMapStyle] = useState('dark')
   const [search, setSearch] = useState('')
+  const [marketVersion, setMarketVersion] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -42,8 +43,10 @@ export default function MapPage() {
       logActivity('map_viewed', `${data.length} leads on map`)
     }
     load()
+  }, [marketVersion])
 
-    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); load() }
+  useEffect(() => {
+    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); setMarketVersion(v => v + 1) }
     window.addEventListener('market-changed', onMarketChange)
     return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])

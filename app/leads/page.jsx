@@ -30,6 +30,7 @@ export default function AllLeadsPage() {
   const [sortCol, setSortCol] = useState('score')
   const [sortDir, setSortDir] = useState('desc')
   const [visibleCount, setVisibleCount] = useState(50)
+  const [marketVersion, setMarketVersion] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -65,10 +66,10 @@ export default function AllLeadsPage() {
     }
     setLoading(true)
     load()
-  }, [search, minScore, dinsFilter, trade])
+  }, [search, minScore, dinsFilter, trade, marketVersion])
 
   useEffect(() => {
-    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); setMinScore(''); setDinsFilter(''); setTrade('all') }
+    const onMarketChange = () => { setLoading(true); setLeads([]); setSearch(''); setMinScore(''); setDinsFilter(''); setTrade('all'); setMarketVersion(v => v + 1) }
     window.addEventListener('market-changed', onMarketChange)
     return () => window.removeEventListener('market-changed', onMarketChange)
   }, [])
