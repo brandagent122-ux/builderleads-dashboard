@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getDrafts, updateDraftStatus, getUserContext, getActiveMarket, getSession } from '@/lib/supabase'
+import { getDrafts, updateDraftStatus, getUserContext, getSession } from '@/lib/supabase'
 
 function TypingText({ text, speed = 12, onComplete, box }) {
   const [displayed, setDisplayed] = useState('')
@@ -23,10 +23,7 @@ function TypingText({ text, speed = 12, onComplete, box }) {
       s.style.background = sparkColors[Math.floor(Math.random() * sparkColors.length)]
       s.style.left = (cr.left - br.left + Math.random() * 8 - 4) + 'px'
       s.style.top = (cr.top - br.top + Math.random() * 8 - 4) + 'px'
-      if (type === 'burst') {
-        s.style.setProperty('--bx', (Math.random()*40-20)+'px')
-        s.style.setProperty('--by', (Math.random()*40-20)+'px')
-      }
+      if (type === 'burst') { s.style.setProperty('--bx', (Math.random()*40-20)+'px'); s.style.setProperty('--by', (Math.random()*40-20)+'px') }
       box.current.appendChild(s)
       setTimeout(() => s.remove(), 1200)
     }
@@ -34,23 +31,14 @@ function TypingText({ text, speed = 12, onComplete, box }) {
 
   useEffect(() => {
     if (!text) return
-    idxRef.current = 0
-    doneRef.current = false
-    setDisplayed('')
+    idxRef.current = 0; doneRef.current = false; setDisplayed('')
     const interval = setInterval(() => {
       const ch = text[idxRef.current]
-      const jump = ch === ' ' ? 2 : 1
-      idxRef.current = Math.min(idxRef.current + jump, text.length)
+      idxRef.current = Math.min(idxRef.current + (ch === ' ' ? 2 : 1), text.length)
       setDisplayed(text.substring(0, idxRef.current))
       if (Math.random() > 0.5) emitSparks(1, 'rise')
       if (ch === '.' || ch === '\n') emitSparks(4, 'burst')
-      if (idxRef.current >= text.length) {
-        clearInterval(interval)
-        doneRef.current = true
-        setShowCursor(false)
-        emitSparks(15, 'burst')
-        if (onComplete) setTimeout(onComplete, 300)
-      }
+      if (idxRef.current >= text.length) { clearInterval(interval); doneRef.current = true; setShowCursor(false); emitSparks(15, 'burst'); if (onComplete) setTimeout(onComplete, 300) }
     }, speed)
     const blink = setInterval(() => { if (!doneRef.current) setShowCursor(c => !c) }, 500)
     return () => { clearInterval(interval); clearInterval(blink) }
@@ -60,34 +48,26 @@ function TypingText({ text, speed = 12, onComplete, box }) {
 }
 
 function AgentStep({ icon, name, status, time }) {
-  const cls = status === 'active' ? 'active' : status === 'done' ? 'done' : ''
   return (
     <div style={{
       display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderRadius:12,
-      border:`0.5px solid ${status==='active'?'#7F77DD':status==='done'?'#1D9E75':'var(--color-border-tertiary, rgba(255,255,255,0.08))'}`,
+      border:`0.5px solid ${status==='active'?'#7F77DD':status==='done'?'#1D9E75':'var(--color-border-tertiary,rgba(255,255,255,0.08))'}`,
       background:'var(--color-background-primary,#212126)',position:'relative',overflow:'hidden',transition:'all 0.4s',
     }}>
       {status==='active' && <div style={{position:'absolute',inset:0,background:'rgba(127,119,221,0.06)'}}/>}
       {status==='done' && <div style={{position:'absolute',inset:0,background:'rgba(29,158,117,0.06)'}}/>}
       <div style={{
         width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',
-        background:status==='active'?'rgba(127,119,221,0.12)':status==='done'?'rgba(29,158,117,0.12)':'var(--color-background-secondary,#19191D)',
-        transition:'all 0.4s',
+        background:status==='active'?'rgba(127,119,221,0.12)':status==='done'?'rgba(29,158,117,0.12)':'var(--color-background-secondary,#19191D)',transition:'all 0.4s',
       }}>
-        {status==='active' && (
-          <div style={{position:'absolute',inset:-3,borderRadius:'50%',border:'2px solid #7F77DD',borderTopColor:'transparent',animation:'mwspin 1.5s linear infinite'}}/>
-        )}
-        {status==='done' && (
-          <div style={{position:'absolute',inset:-3,borderRadius:'50%',border:'2px solid #1D9E75'}}/>
-        )}
+        {status==='active' && <div style={{position:'absolute',inset:-3,borderRadius:'50%',border:'2px solid #7F77DD',borderTopColor:'transparent',animation:'mwspin 1.5s linear infinite'}}/>}
+        {status==='done' && <div style={{position:'absolute',inset:-3,borderRadius:'50%',border:'2px solid #1D9E75'}}/>}
         {status==='done' ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{position:'relative',zIndex:1,animation:'mwpop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards'}}><polyline points="20 6 9 17 4 12"/></svg>
-        ) : (
-          <span style={{position:'relative',zIndex:1}} dangerouslySetInnerHTML={{__html:icon}}/>
-        )}
+        ) : <span style={{position:'relative',zIndex:1}} dangerouslySetInnerHTML={{__html:icon}}/>}
       </div>
       <div style={{position:'relative',zIndex:1}}>
-        <div style={{fontSize:10,fontWeight:500,fontFamily:'var(--font-mono,JetBrains Mono,monospace)',letterSpacing:0.3,color:status==='active'?'#7F77DD':status==='done'?'#1D9E75':'var(--color-text-tertiary,#555)',transition:'color 0.4s'}}>{name}</div>
+        <div style={{fontSize:10,fontWeight:500,fontFamily:'var(--font-mono,monospace)',letterSpacing:0.3,color:status==='active'?'#7F77DD':status==='done'?'#1D9E75':'var(--color-text-tertiary,#555)',transition:'color 0.4s'}}>{name}</div>
         {status==='done' && time && <div style={{fontSize:9,color:'var(--color-text-tertiary,#555)',fontFamily:'var(--font-mono,monospace)',marginTop:1}}>{time}</div>}
       </div>
     </div>
@@ -105,10 +85,8 @@ export default function OutreachPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expanded, setExpanded] = useState(null)
-  const [marketVersion, setMarketVersion] = useState(0)
   const [userCtx, setUserCtx] = useState(null)
 
-  // Generation state
   const [generating, setGenerating] = useState(false)
   const [genAddress, setGenAddress] = useState('')
   const [agentStates, setAgentStates] = useState(['idle','idle','idle','idle'])
@@ -119,24 +97,43 @@ export default function OutreachPage() {
   const [genStatus, setGenStatus] = useState('DRAFTING')
   const emailBoxRef = useRef(null)
 
-  async function reloadDrafts(ctx) {
+  // Always load ALL drafts (no market filter on outreach page)
+  async function loadDrafts(ctx, statusFilter) {
     const c = ctx || userCtx
     if (!c) return
-    const market = c.isAdmin ? getActiveMarket() : null
-    const data = await getDrafts(filter === 'all' ? null : filter, c.assignedLeadIds, market)
+    const data = await getDrafts(statusFilter === 'all' ? null : statusFilter, c.assignedLeadIds, null)
     setDrafts(data)
   }
 
-  // Check for pending draft request on mount
+  useEffect(() => {
+    async function load() {
+      const ctx = await getUserContext()
+      if (!ctx) { setLoading(false); return }
+      setUserCtx(ctx)
+      const data = await getDrafts(null, ctx.assignedLeadIds, null)
+      setDrafts(data)
+      setLoading(false)
+    }
+    setLoading(true)
+    load()
+  }, [])
+
+  // Filter change reloads
+  useEffect(() => {
+    if (userCtx) {
+      setLoading(true)
+      loadDrafts(userCtx, filter).then(() => setLoading(false))
+    }
+  }, [filter])
+
+  // Check for pending draft request
   useEffect(() => {
     const raw = localStorage.getItem('bl_draft_request')
     if (raw) {
       localStorage.removeItem('bl_draft_request')
       try {
         const req = JSON.parse(raw)
-        if (Date.now() - req.ts < 30000) {
-          runDraftGeneration(req.lead_id, req.address)
-        }
+        if (Date.now() - req.ts < 30000) runDraftGeneration(req.lead_id, req.address)
       } catch {}
     }
   }, [])
@@ -152,22 +149,18 @@ export default function OutreachPage() {
     setConnectors([false,false,false])
 
     const t0 = Date.now()
-
-    // Step 1: Analyze
     setAgentStates(['active','idle','idle','idle'])
     await sleep(800)
     setAgentStates(['done','idle','idle','idle'])
-    setAgentTimes([((Date.now()-t0)/1000).toFixed(1)+'s','','',''])
+    setAgentTimes([fmt(t0),'','',''])
     setConnectors([true,false,false])
 
-    // Step 2: Angle
     setAgentStates(['done','active','idle','idle'])
     await sleep(600)
     setAgentStates(['done','done','idle','idle'])
-    setAgentTimes(prev => [prev[0],((Date.now()-t0)/1000).toFixed(1)+'s','',''])
+    setAgentTimes(p => [p[0],fmt(t0),'',''])
     setConnectors([true,true,false])
 
-    // Step 3: Write (API call happens here)
     setAgentStates(['done','done','active','idle'])
     let result
     try {
@@ -179,69 +172,45 @@ export default function OutreachPage() {
       })
       result = await resp.json()
     } catch (err) {
-      setGenerating(false)
-      setGenStatus('ERROR')
-      return
+      setGenStatus('ERROR'); return
     }
-
-    if (result.error) {
-      setGenerating(false)
-      setGenStatus('ERROR')
-      return
-    }
+    if (result.error) { setGenStatus('ERROR'); return }
 
     setAgentStates(['done','done','done','idle'])
-    setAgentTimes(prev => [prev[0],prev[1],((Date.now()-t0)/1000).toFixed(1)+'s',''])
+    setAgentTimes(p => [p[0],p[1],fmt(t0),''])
     setConnectors([true,true,true])
 
-    // Step 4: Verify
     setAgentStates(['done','done','done','active'])
     await sleep(500)
     setAgentStates(['done','done','done','done'])
-    setAgentTimes(prev => [prev[0],prev[1],prev[2],((Date.now()-t0)/1000).toFixed(1)+'s'])
+    setAgentTimes(p => [p[0],p[1],p[2],fmt(t0)])
 
-    // Start typing
     setGenDraft(result.draft)
     setTypingPhase('subject')
   }
 
-  // Load drafts
-  useEffect(() => {
-    async function load() {
-      const ctx = await getUserContext()
-      if (!ctx) { setLoading(false); return }
-      setUserCtx(ctx)
-      const market = ctx.isAdmin ? getActiveMarket() : null
-      const data = await getDrafts(filter === 'all' ? null : filter, ctx.assignedLeadIds, market)
-      setDrafts(data)
-      setLoading(false)
-    }
-    setLoading(true)
-    load()
-  }, [filter, marketVersion])
-
-  useEffect(() => {
-    const onMarketChange = () => { setLoading(true); setDrafts([]); setFilter('all'); setMarketVersion(v => v + 1) }
-    window.addEventListener('market-changed', onMarketChange)
-    return () => window.removeEventListener('market-changed', onMarketChange)
-  }, [])
+  async function handleApproveNew() {
+    if (!genDraft) return
+    await updateDraftStatus(genDraft.id, 'approved')
+    await loadDrafts(userCtx, filter)
+    setGenerating(false)
+  }
 
   async function handleStatusUpdate(id, status) {
     await updateDraftStatus(id, status)
-    await reloadDrafts()
+    await loadDrafts(userCtx, filter)
   }
+
+  function fmt(t0) { return ((Date.now()-t0)/1000).toFixed(1)+'s' }
 
   const counts = {
     all: drafts.length + (generating ? 1 : 0),
-    pending_review: drafts.filter(d => d.status === 'pending_review').length,
+    pending_review: drafts.filter(d => d.status === 'pending_review').length + (generating && typingPhase === 'done' ? 1 : 0),
     approved: drafts.filter(d => d.status === 'approved').length,
     sent: drafts.filter(d => d.status === 'sent').length,
   }
 
-  const searchIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+(agentStates[0]==='active'?'#7F77DD':'var(--color-text-tertiary,#555)')+'" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-  const starIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+(agentStates[1]==='active'?'#7F77DD':'var(--color-text-tertiary,#555)')+'" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
-  const penIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+(agentStates[2]==='active'?'#7F77DD':'var(--color-text-tertiary,#555)')+'" stroke-width="2" stroke-linecap="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>'
-  const shieldIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+(agentStates[3]==='active'?'#7F77DD':'var(--color-text-tertiary,#555)')+'" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+  const mkIcon = (path, state) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${state==='active'?'#7F77DD':'var(--color-text-tertiary,#555)'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`
 
   return (
     <div className="p-8">
@@ -274,55 +243,50 @@ export default function OutreachPage() {
         <div className="card p-6 mb-4" style={{ borderLeft: '3px solid #7F77DD' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
             <div style={{ width:6, height:6, borderRadius:'50%', background: genStatus==='COMPLETE'?'#1D9E75':'#7F77DD', transition:'background 0.4s' }} />
-            <span style={{ fontSize:10, fontFamily:'var(--font-mono,monospace)', letterSpacing:1.5, color: genStatus==='COMPLETE'?'#1D9E75':'#7F77DD', fontWeight:500, transition:'color 0.4s' }}>{genStatus}</span>
+            <span style={{ fontSize:10, fontFamily:'var(--font-mono,monospace)', letterSpacing:1.5, color: genStatus==='COMPLETE'?'#1D9E75':'#7F77DD', fontWeight:500 }}>{genStatus}</span>
             <span style={{ fontSize:14, fontWeight:500, color:'var(--color-text-primary,#fff)' }}>{genAddress}</span>
           </div>
 
-          {/* Agent steps */}
           <div style={{ display:'flex', gap:0, alignItems:'center', marginBottom:20, flexWrap:'wrap' }}>
-            <AgentStep icon={searchIcon} name="Analyze" status={agentStates[0]} time={agentTimes[0]} />
+            <AgentStep icon={mkIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',agentStates[0])} name="Analyze" status={agentStates[0]} time={agentTimes[0]} />
             <Connector lit={connectors[0]} />
-            <AgentStep icon={starIcon} name="Angle" status={agentStates[1]} time={agentTimes[1]} />
+            <AgentStep icon={mkIcon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',agentStates[1])} name="Angle" status={agentStates[1]} time={agentTimes[1]} />
             <Connector lit={connectors[1]} />
-            <AgentStep icon={penIcon} name="Write" status={agentStates[2]} time={agentTimes[2]} />
+            <AgentStep icon={mkIcon('<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/>',agentStates[2])} name="Write" status={agentStates[2]} time={agentTimes[2]} />
             <Connector lit={connectors[2]} />
-            <AgentStep icon={shieldIcon} name="Verify" status={agentStates[3]} time={agentTimes[3]} />
+            <AgentStep icon={mkIcon('<path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',agentStates[3])} name="Verify" status={agentStates[3]} time={agentTimes[3]} />
           </div>
 
-          {/* Email typing area */}
           {genDraft && (
             <div ref={emailBoxRef} style={{
-              borderRadius: 'var(--border-radius-lg,12px)', border: '0.5px solid var(--color-border-tertiary,rgba(255,255,255,0.08))',
-              background: 'var(--color-background-secondary,#19191D)', padding: '1.25rem', position: 'relative', overflow: 'hidden', minHeight: 160,
+              borderRadius:12, border:'0.5px solid var(--color-border-tertiary,rgba(255,255,255,0.08))',
+              background:'var(--color-background-secondary,#19191D)', padding:'1.25rem', position:'relative', overflow:'hidden', minHeight:160,
             }}>
-              <div style={{ position:'absolute', bottom:0, left:0, height:1, width: typingPhase==='done'?'100%':'0%', background:'linear-gradient(90deg,transparent,rgba(127,119,221,0.4),rgba(93,202,165,0.3),transparent)', transition:'width 3s ease' }} />
+              <div style={{ position:'absolute', bottom:0, left:0, height:1, width:typingPhase==='done'?'100%':'0%', background:'linear-gradient(90deg,transparent,rgba(127,119,221,0.4),rgba(93,202,165,0.3),transparent)', transition:'width 3s ease' }} />
               <div style={{ fontSize:15, fontWeight:500, color:'var(--color-text-primary,#fff)', marginBottom:16, minHeight:22 }}>
                 {typingPhase === 'subject' ? (
                   <TypingText text={genDraft.subjects?.[0] || 'Outreach'} speed={25} box={emailBoxRef} onComplete={() => setTypingPhase('body')} />
-                ) : typingPhase === 'body' || typingPhase === 'done' ? (
-                  genDraft.subjects?.[0] || 'Outreach'
-                ) : null}
+                ) : (typingPhase === 'body' || typingPhase === 'done') ? (genDraft.subjects?.[0] || 'Outreach') : null}
               </div>
               <div style={{ fontSize:13, lineHeight:1.8, color:'var(--color-text-secondary,#aaa)' }}>
                 {typingPhase === 'body' ? (
                   <TypingText text={genDraft.body} speed={12} box={emailBoxRef} onComplete={() => {
                     setTypingPhase('done')
                     setGenStatus('COMPLETE')
-                    reloadDrafts()
+                    loadDrafts(userCtx, filter)
                   }} />
                 ) : typingPhase === 'done' ? (
                   <span dangerouslySetInnerHTML={{ __html: genDraft.body.replace(/\n/g, '<br>') }} />
                 ) : null}
               </div>
 
-              {/* Action buttons after typing completes */}
               {typingPhase === 'done' && (
                 <div style={{ display:'flex', gap:8, marginTop:16, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.04)' }}>
-                  <button onClick={() => { handleStatusUpdate(genDraft.id, 'approved'); setGenerating(false); }}
+                  <button onClick={handleApproveNew}
                     style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.15)', cursor:'pointer' }}>
                     Approve
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(genDraft.body) }}
+                  <button onClick={() => navigator.clipboard.writeText(genDraft.body)}
                     style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>
                     Copy to clipboard
                   </button>
@@ -341,8 +305,8 @@ export default function OutreachPage() {
         </div>
       )}
 
-      {/* Normal draft list */}
-      {loading ? (
+      {/* Draft list */}
+      {loading && !generating ? (
         <div className="text-center py-20 text-accent animate-pulse text-sm">Loading drafts...</div>
       ) : drafts.length === 0 && !generating ? (
         <div className="text-center py-20 text-slate-650">No drafts match this filter</div>
