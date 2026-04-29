@@ -33,10 +33,17 @@ export default function DraftOutreachButton({ leadId }) {
       }
 
       setStatus('done')
-      // Redirect to outreach page after brief success animation
+      // Store new draft ID so outreach page can animate it
+      localStorage.setItem('bl_new_draft', JSON.stringify({
+        id: result.draft.id,
+        body: result.draft.body,
+        subjects: result.draft.subjects,
+        angle: result.draft.angle,
+        ts: Date.now(),
+      }))
       setTimeout(() => {
         router.push('/outreach')
-      }, 1200)
+      }, 500)
 
     } catch (err) {
       setError('Failed to generate draft')
