@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import UnlockButton from '@/components/UnlockButton'
+import DraftOutreachButton from '@/components/DraftOutreachButton'
 import NotesPanel from '@/components/NotesPanel'
 import StreetView from '@/components/StreetView'
 import { useParams } from 'next/navigation'
@@ -83,15 +84,16 @@ export default function LeadDetailPage() {
                 <rect x="6" y="14" width="12" height="8"/>
               </svg>
             </button>
+            <DraftOutreachButton leadId={parseInt(params.id)} />
           </div>
           <div className="flex gap-2 mt-2 flex-wrap">
-            <DamageBadge damage={lead.dins_damage} />
+            {lead.fire_zone_match && <DamageBadge damage={lead.dins_damage} />}
             <span className="badge badge-permit">{lead.permit_type}</span>
             <span className="badge badge-stage">{lead.permit_stage}</span>
             {totalPermits > 1 && <span className="badge badge-stack">{totalPermits} permits stacked</span>}
-            {lead.is_perimeter_edge && <span className="badge badge-fire">Perimeter edge</span>}
+            {lead.fire_zone_match && lead.is_perimeter_edge && <span className="badge badge-fire">Perimeter edge</span>}
             {lead.owner_occupied && <span className="badge badge-permit">Owner-occupied</span>}
-            {lead.contractor_name === 'None listed' && <span className="badge badge-fire">No contractor</span>}
+            {(!lead.contractor_name || lead.contractor_name === 'None listed' || lead.contractor_name === 'Not in public record') && <span className="badge badge-fire">No contractor</span>}
           </div>
         </div>
         <div className="text-center">
