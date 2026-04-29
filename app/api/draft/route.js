@@ -367,6 +367,7 @@ export async function POST(request) {
       success: true,
       draft: {
         id: savedDraft.id,
+        lead_id: lead_id,
         subjects: draft.subjects,
         body: draft.body,
         angle: angle.angle,
