@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllLeads, getUserContext, getActiveMarket } from '@/lib/supabase'
 import { logActivity } from '@/lib/activity'
 import dynamic from 'next/dynamic'
@@ -30,6 +30,7 @@ export default function MapPage() {
   const [flyTo, setFlyTo] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [userCtx, setUserCtx] = useState(null)
+  const userCtxRef = useRef(null)
 
   // Initial load
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function MapPage() {
       if (!ctx) { setLoading(false); return }
       setIsAdmin(ctx.isAdmin)
       setUserCtx(ctx)
+      userCtxRef.current = ctx
 
       // Load leads for the active sidebar market
       const market = ctx.isAdmin ? getActiveMarket() : null
@@ -75,13 +77,14 @@ export default function MapPage() {
 
   // Fetch leads for a specific market
   async function loadMarket(slug) {
-    if (!userCtx) return
+    const ctx = userCtxRef.current
+    if (!ctx) return
     setLoading(true)
     setSelectedLead(null)
     setSearch('')
 
     const market = slug === 'all' ? null : slug
-    const data = await getAllLeads({}, userCtx.assignedLeadIds, market)
+    const data = await getAllLeads({}, ctx.assignedLeadIds, market)
     const withCoords = data.filter(l => l.latitude && l.longitude)
     setLeads(withCoords)
     setLoading(false)
@@ -145,7 +148,7 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink-0 tracking-tight">Map View</h1>
           <p className="font-mono text-[12px] text-ink-2 mt-1 tracking-wider uppercase">
-            {filtered.length} LEADS {selectedCity !== 'all' && `\u00B7 ${cityLabel.toUpperCase()}`} {activeFilter > 0 && `\u00B7 SCORE ${f.label}`} \u00B7 {totalValue >= 1e9 ? `$${(totalValue / 1e9).toFixed(1)}B` : `$${(totalValue / 1e6).toFixed(0)}M`} VALUE
+            {filtered.length} LEADS {selectedCity !== 'all' && <>&nbsp;· {cityLabel.toUpperCase()}</>} {activeFilter > 0 && <>&nbsp;· SCORE {f.label}</>} &nbsp;· {totalValue >= 1e9 ? `$${(totalValue / 1e9).toFixed(1)}B` : `$${(totalValue / 1e6).toFixed(0)}M`} VALUE
           </p>
         </div>
       </div>
