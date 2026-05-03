@@ -14,19 +14,24 @@ const icons = {
   admin: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 }
 
-function NavItem({ href, icon, label, pathname }) {
+function NavItem({ href, icon, label, pathname, tradeColor }) {
   const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
   return (
-    <a href={href} className={`nav-item ${isActive ? 'active' : ''}`}>
+    <a
+      href={href}
+      className={`nav-item ${isActive ? 'active' : ''}`}
+      style={isActive ? { borderLeftColor: tradeColor } : undefined}
+    >
       {icons[icon]}
       <span>{label}</span>
     </a>
   )
 }
 
-export default function SidebarNav() {
+export default function SidebarNav({ trade = 'gc', tradeConfig = null }) {
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
+  const color = tradeConfig?.color || '#FF7A3D'
 
   useEffect(() => {
     async function checkRole() {
@@ -41,21 +46,21 @@ export default function SidebarNav() {
 
   return (
     <nav className="flex flex-col gap-1 flex-1">
-      <NavItem href="/" icon="grid" label="Command Center" pathname={pathname} />
-      <NavItem href="/leads" icon="list" label="All Leads" pathname={pathname} />
-      <NavItem href="/map" icon="map" label="Map View" pathname={pathname} />
-      <NavItem href="/outreach" icon="mail" label="Outreach Queue" pathname={pathname} />
+      <NavItem href="/" icon="grid" label="Command Center" pathname={pathname} tradeColor={color} />
+      <NavItem href="/leads" icon="list" label="All Leads" pathname={pathname} tradeColor={color} />
+      <NavItem href="/map" icon="map" label="Map View" pathname={pathname} tradeColor={color} />
+      <NavItem href="/outreach" icon="mail" label="Outreach Queue" pathname={pathname} tradeColor={color} />
 
       <div className="h-px bg-[var(--line)] my-2" />
 
-      <NavItem href="/saved" icon="star" label="Saved Leads" pathname={pathname} />
-      <NavItem href="/reports" icon="file" label="Reports" pathname={pathname} />
-      <NavItem href="/settings" icon="gear" label="Settings" pathname={pathname} />
+      <NavItem href="/saved" icon="star" label="Saved Leads" pathname={pathname} tradeColor={color} />
+      <NavItem href="/reports" icon="file" label="Reports" pathname={pathname} tradeColor={color} />
+      <NavItem href="/settings" icon="gear" label="Settings" pathname={pathname} tradeColor={color} />
 
       {isAdmin && (
         <>
           <div className="h-px bg-[var(--line)] my-2" />
-          <NavItem href="/admin" icon="admin" label="Admin" pathname={pathname} />
+          <NavItem href="/admin" icon="admin" label="Admin" pathname={pathname} tradeColor={color} />
         </>
       )}
 

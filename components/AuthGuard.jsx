@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase, getProfile } from '@/lib/supabase'
+import { getTradeConfig } from '@/lib/tradeConfig'
 import SidebarNav from '@/components/SidebarNav'
 import MarketSelector from '@/components/MarketSelector'
 
@@ -9,8 +10,10 @@ export default function AuthGuard({ children }) {
   const [status, setStatus] = useState('loading')
   const [activeMarket, setActiveMarket] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [trade, setTrade] = useState('gc')
   const pathname = usePathname()
   const checkedRef = useRef(false)
+  const stageRef = useRef(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('builderleads_market')
@@ -48,6 +51,9 @@ export default function AuthGuard({ children }) {
         if (p && p.role === 'admin') {
           setIsAdmin(true)
         }
+        if (p && p.trade) {
+          setTrade(p.trade)
+        }
       }
 
       checkedRef.current = true
@@ -55,6 +61,20 @@ export default function AuthGuard({ children }) {
     }
     check()
   }, [pathname])
+
+  useEffect(() => {
+    if (!stageRef.current) return
+    const config = getTradeConfig(trade)
+    const el = stageRef.current
+    el.style.setProperty('--trade-color', config.color)
+    el.style.setProperty('--trade-color-rgb', config.colorRgb)
+    el.style.setProperty('--trade-wash', 'rgba(' + config.colorRgb + ', 0.08)')
+    el.style.setProperty('--ember', config.color)
+    el.style.setProperty('--ember-rgb', config.colorRgb)
+    el.style.setProperty('--ember-wash', 'rgba(' + config.colorRgb + ', 0.08)')
+    el.style.setProperty('--ember-hi', config.color)
+    window.dispatchEvent(new CustomEvent('trade-loaded', { detail: trade }))
+  }, [trade, status])
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -107,26 +127,47 @@ export default function AuthGuard({ children }) {
     return <div style={{ minHeight: '100vh', background: 'var(--page, #141416)' }} />
   }
 
+  const tradeConfig = getTradeConfig(trade)
+
   return (
-    <div className="stage flex">
+    <div className="stage flex" ref={stageRef}>
       <aside className="w-[232px] flex flex-col p-3 flex-shrink-0">
         <div className="card-raised p-4 flex flex-col flex-1" style={{ borderRadius: 'var(--r-pill)' }}>
-          <a href="/" className="flex items-center gap-3 px-2 mb-4">
-            <div className="icon-chip icon-chip-ember">
+          <a href="/" className="flex items-center gap-3 px-2 mb-3">
+            <div className="icon-chip" style={{ background: tradeConfig.color }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#141416" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             </div>
             <div>
               <div className="text-sm font-semibold text-ink-0 tracking-tight">BuilderLeads</div>
             </div>
           </a>
+
+          <div className="px-2 mb-3">
+            <div style={{
+              background: 'rgba(' + tradeConfig.colorRgb + ', 0.08)',
+              border: '1px solid rgba(' + tradeConfig.colorRgb + ', 0.2)',
+              borderRadius: 10,
+              padding: '8px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{ fontSize: 18 }}>{tradeConfig.icon}</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: tradeConfig.color }}>{tradeConfig.name}</div>
+                <div style={{ fontSize: 9, color: '#666' }}>13 markets active</div>
+              </div>
+            </div>
+          </div>
+
           {activeMarket && (
             <div className="px-2 mb-2">
               <MarketSelector activeMarket={activeMarket} onSelect={handleMarketChange} />
             </div>
           )}
-          <SidebarNav />
+          <SidebarNav trade={trade} tradeConfig={tradeConfig} />
           <div className="mt-4 px-2 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-moss animate-pulse" />
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: tradeConfig.color }} />
             <div>
               <div className="font-mono text-[10px] text-ink-3">Data refreshed daily</div>
               <div className="font-mono text-[10px] text-ink-3">Pipeline active</div>
@@ -137,7 +178,7 @@ export default function AuthGuard({ children }) {
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
         <div className="px-6 pt-5 pb-3 flex items-center justify-end gap-3">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--line)]">
-            <div className="w-2 h-2 rounded-full bg-moss animate-pulse" />
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: tradeConfig.color }} />
             <span className="font-mono text-[10px] text-ink-2">LIVE DATA</span>
           </div>
           <div className="w-9 h-9 rounded-xl border border-[var(--line)] flex items-center justify-center cursor-pointer hover:border-ember/30 transition-colors">

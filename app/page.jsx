@@ -1,248 +1,236 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { getStats, getTopLeads, getUserContext, getActiveMarket } from '@/lib/supabase'
+import { useParams } from 'next/navigation'
+import { getLeadDetail, updateDraftStatus } from '@/lib/supabase'
 
-export default function CommandCenter() {
-  const [stats, setStats] = useState(null)
-  const [leads, setLeads] = useState([])
+export default function LeadDetailPage() {
+  const params = useParams()
+  const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [seenIds, setSeenIds] = useState(new Set())
-  const [lastVisit, setLastVisit] = useState(null)
-  const [showBrief, setShowBrief] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [marketVersion, setMarketVersion] = useState(0)
-  const router = useRouter()
-
-  async function loadData() {
-    const ctx = await getUserContext()
-    if (!ctx) { setLoading(false); return }
-    setIsAdmin(ctx.isAdmin)
-    const ids = ctx.assignedLeadIds
-    const market = ctx.isAdmin ? getActiveMarket() : null
-    const [s, l] = await Promise.all([getStats(ids, market), getTopLeads(20, ids, market)])
-    const byAddr = {}
-    l.forEach(lead => {
-      if (!byAddr[lead.address] || lead.score > byAddr[lead.address].score) {
-        byAddr[lead.address] = { ...lead, permitCount: l.filter(x => x.address === lead.address).length }
-      }
-    })
-    setStats(s)
-    setLeads(Object.values(byAddr).sort((a, b) => b.score - a.score).slice(0, 10))
-    setLoading(false)
-  }
 
   useEffect(() => {
-    const stored = localStorage.getItem('bl_seen_leads')
-    const storedVisit = localStorage.getItem('bl_last_visit')
-    if (stored) setSeenIds(new Set(JSON.parse(stored)))
-    if (storedVisit) setLastVisit(new Date(storedVisit))
-
-    loadData()
-    localStorage.setItem('bl_last_visit', new Date().toISOString())
-
-    const onMarketChange = () => { setLoading(true); setMarketVersion(v => v + 1) }
-    window.addEventListener('market-changed', onMarketChange)
-    return () => window.removeEventListener('market-changed', onMarketChange)
-  }, [])
-
-  useEffect(() => {
-    if (marketVersion > 0) {
-      setLoading(true)
-      loadData()
+    async function load() {
+      const data = await getLeadDetail(params.id)
+      setLead(data)
+      setLoading(false)
     }
-  }, [marketVersion])
+    load()
+  }, [params.id])
 
-  function markSeen(id) {
-    const updated = new Set(seenIds)
-    updated.add(id)
-    setSeenIds(updated)
-    localStorage.setItem('bl_seen_leads', JSON.stringify([...updated]))
-  }
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="text-accent animate-pulse text-sm">Loading lead...</div></div>
+  if (!lead) return <div className="p-8 text-slate-500">Lead not found</div>
 
-  function isNew(lead) {
-    if (seenIds.has(lead.id)) return false
-    if (!lastVisit) return false
-    return lead.created_at && new Date(lead.created_at) > lastVisit
-  }
-
-  if (loading) return <LoadingSkeleton />
-
-  const newCount = leads.filter(l => isNew(l)).length
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const scoreColor = lead.score >= 85 ? '#ff6b35' : lead.score >= 75 ? '#ff8f65' : lead.score >= 50 ? '#fbbf24' : '#6b7280'
+  const totalPermits = 1 + (lead.stackedPermits?.length || 0)
 
   return (
-    <div>
-      <div className="flex items-start justify-between mb-6">
+    <div className="p-8 max-w-5xl">
+      <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors mb-4 inline-block">&larr; Back to all leads</a>
+
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-ink-0 tracking-tight">Command Center</h1>
-          <p className="font-mono text-[11px] text-ink-3 mt-2 tracking-wider uppercase">
-            Palisades Fire Intel &middot; {today}
-          </p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{lead.address}</h1>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <DamageBadge damage={lead.dins_damage} />
+            <span className="badge badge-permit">{lead.permit_type}</span>
+            <span className="badge badge-stage">{lead.permit_stage}</span>
+            {totalPermits > 1 && <span className="badge badge-stack">{totalPermits} permits stacked</span>}
+            {lead.is_perimeter_edge && <span className="badge badge-fire">Perimeter edge</span>}
+          </div>
         </div>
-        {newCount > 0 && (
-          <div className="font-mono text-[11px] text-ember bg-[var(--ember-wash)] px-3 py-1.5 rounded-xl border border-ember/20">
-            {newCount} NEW SINCE LAST VISIT
+        <div className="text-center">
+          <div className="relative w-[72px] h-[72px]">
+            <svg width="72" height="72" viewBox="0 0 72 72" className="score-ring">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="#1e2030" strokeWidth="4" />
+              <circle cx="36" cy="36" r="30" fill="none" stroke={scoreColor} strokeWidth="4"
+                strokeDasharray={2 * Math.PI * 30} strokeDashoffset={2 * Math.PI * 30 * (1 - lead.score / 100)} strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold" style={{ color: scoreColor }}>
+              {lead.score}
+            </div>
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Score</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Property details</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Detail label="Bedrooms" value={lead.beds || '-'} />
+            <Detail label="Bathrooms" value={lead.baths || '-'} />
+            <Detail label="Square feet" value={lead.sqft ? lead.sqft.toLocaleString() : '-'} />
+            <Detail label="Year built" value={lead.year_built || '-'} />
+            <Detail label="Assessed value" value={lead.assessor_value ? `$${(lead.assessor_value / 1e6).toFixed(2)}M` : '-'} />
+            <Detail label="APN" value={lead.apn || '-'} />
+          </div>
+        </div>
+
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">Fire damage intel</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Detail label="DINS classification" value={lead.dins_damage || '-'} />
+            <Detail label="Structure type" value={lead.dins_structure_type || '-'} />
+            <Detail label="Fire damage flag" value={lead.fire_damage_flag || '-'} />
+            <Detail label="Fire zone" value={lead.fire_zone_match ? 'Inside perimeter' : 'Outside'} />
+            <Detail label="Distance to perimeter" value={lead.fire_zone_distance_ft != null ? `${Math.round(lead.fire_zone_distance_ft)} ft` : '-'} />
+            <Detail label="DINS match accuracy" value={lead.dins_match_distance_m != null ? `${Math.round(lead.dins_match_distance_m)}m` : '-'} />
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-5 mb-6">
+        <h3 className="text-sm font-semibold text-white mb-4">Permit timeline</h3>
+        <div className="grid grid-cols-4 gap-4">
+          <Detail label="Permit number" value={lead.permit_number || '-'} />
+          <Detail label="Filed" value={formatDate(lead.permit_filed_at)} />
+          <Detail label="Issued" value={formatDate(lead.permit_issued_at)} />
+          <Detail label="Permit value" value={lead.estimated_value ? `$${lead.estimated_value.toLocaleString()}` : '-'} />
+        </div>
+        {(lead.permit_filed_at || lead.permit_issued_at) && (
+          <div className="mt-4 flex items-center gap-2">
+            {lead.permit_filed_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-accent/50" />
+                <span className="text-xs text-slate-500">Filed {formatDate(lead.permit_filed_at)}</span>
+              </div>
+            )}
+            {lead.permit_filed_at && lead.permit_issued_at && (
+              <div className="flex-1 h-px bg-accent/20 mx-2" />
+            )}
+            {lead.permit_issued_at && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-accent" />
+                <span className="text-xs text-slate-500">Issued {formatDate(lead.permit_issued_at)}</span>
+              </div>
+            )}
+            <div className="flex-1 h-px bg-navy-600 mx-2" />
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border-2 border-slate-650" />
+              <span className="text-xs text-slate-650">{lead.permit_stage}</span>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <KPITile icon="layers" label="Total Leads" value={stats.totalLeads.toLocaleString()} sub="+5 today" />
-        <KPITile icon="flame" label="Hot Leads 75+" value={stats.hotLeads.toLocaleString()} sub={`${Math.round(stats.hotLeads/stats.totalLeads*100)}%`} accent />
-        <KPITile icon="alert" label="Destroyed" value={stats.destroyed.toLocaleString()} sub={`${Math.round(stats.destroyed/stats.totalLeads*100)}%`} />
-        <KPITile icon="dollar" label="Est. Rebuild Value" value={formatMoney(stats.rebuildValue)} sub="+$42M wk" />
-      </div>
-
-      {showBrief && (
-        <div className="atlas-card p-4 mb-6 flex items-start gap-4">
-          <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
-            <div className="w-2 h-2 rounded-full bg-ember animate-pulse" />
-            <span className="font-mono text-[11px] text-ember tracking-wider">UPDATE</span>
+      {lead.stackedPermits && lead.stackedPermits.length > 0 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4">
+            Permit stack at this address
+            <span className="ml-2 text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-semibold">{totalPermits} total</span>
+          </h3>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-accent/30">
+              <div className="w-2 h-2 rounded-full bg-accent" />
+              <div className="flex-1">
+                <span className="text-sm text-white font-medium">{lead.permit_type}</span>
+                <span className="text-xs text-slate-500 ml-2">#{lead.permit_number}</span>
+              </div>
+              <span className="badge badge-stage">{lead.permit_stage}</span>
+              <span className="text-xs text-slate-500">{formatDate(lead.permit_issued_at)}</span>
+              <span className="text-xs text-accent font-medium">Current</span>
+            </div>
+            {lead.stackedPermits.map(p => (
+              <a href={`/leads/${p.id}`} key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-navy-600 hover:border-accent/30 transition-colors">
+                <div className="w-2 h-2 rounded-full bg-slate-650" />
+                <div className="flex-1">
+                  <span className="text-sm text-slate-300">{p.permit_type}</span>
+                  <span className="text-xs text-slate-650 ml-2">#{p.permit_number}</span>
+                </div>
+                <span className="badge badge-stage">{p.permit_stage}</span>
+                <span className="text-xs text-slate-500">{formatDate(p.permit_issued_at)}</span>
+                {p.estimated_value > 0 && <span className="text-xs text-slate-500">${p.estimated_value.toLocaleString()}</span>}
+              </a>
+            ))}
           </div>
-          <p className="text-[14px] text-ink-1 leading-relaxed flex-1">
-            {isAdmin ? (
-              <>Pipeline ran at <mark>5:00 AM PT</mark>. <mark>{stats.hotLeads} high-priority</mark> leads detected.
-              <mark>{stats.destroyed} properties</mark> confirmed destroyed.
-              {stats.pendingDrafts > 0 && <> <mark>{stats.pendingDrafts} outreach drafts</mark> pending review.</>}</>
-            ) : (
-              <>Your leads were refreshed at <mark>5:00 AM PT</mark>. Scores and permit data updated.
-              <mark>{stats.hotLeads} of {stats.totalLeads}</mark> leads are high-priority.</>
-            )}
-          </p>
-          <button onClick={() => setShowBrief(false)} className="text-ink-3 hover:text-ink-1 transition-colors flex-shrink-0 p-1">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-ink-0">Top leads by score</h2>
-          <span className="font-mono text-[11px] text-ember bg-[var(--ember-wash)] px-2.5 py-1 rounded-lg">TOP {leads.length}</span>
+      {lead.reasoning && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-3">AI score reasoning</h3>
+          <p className="text-sm text-slate-400 leading-relaxed">{lead.reasoning}</p>
         </div>
-        <a href="/leads" className="font-mono text-[11px] text-ink-2 hover:text-ember transition-colors">View all &rarr;</a>
-      </div>
+      )}
 
-      <div className="flex flex-col gap-3">
-        {leads.map((lead, i) => (
-          <LeadCard key={lead.id} lead={lead} rank={i + 1} isNew={isNew(lead)}
-            onClick={() => { markSeen(lead.id); router.push(`/leads/${lead.id}`) }} />
-        ))}
-      </div>
+      {lead.permit_description && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-3">Permit description</h3>
+          <p className="text-sm text-slate-400 leading-relaxed">{lead.permit_description}</p>
+        </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-4 mt-8">
-        <a href="/outreach" className="card-raised p-5 flex items-center gap-4 card-hover cursor-pointer">
-          <div className="icon-chip icon-chip-sunk">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      {lead.drafts && lead.drafts.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-white mb-4">Draft outreach ({lead.drafts.length})</h3>
+          <div className="flex flex-col gap-3">
+            {lead.drafts.map(draft => (
+              <DraftCard key={draft.id} draft={draft} onUpdate={async (id, status) => {
+                await updateDraftStatus(id, status)
+                const updated = await getLeadDetail(params.id)
+                setLead(updated)
+              }} />
+            ))}
           </div>
-          <div>
-            <div className="text-[15px] font-medium text-ink-0">Review outreach queue</div>
-            <div className="font-mono text-[11px] text-ink-3 mt-0.5">{stats.pendingDrafts} DRAFTS PENDING</div>
-          </div>
-        </a>
-        <a href="/map" className="card-raised p-5 flex items-center gap-4 card-hover cursor-pointer">
-          <div className="icon-chip icon-chip-sunk">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.8"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-          </div>
-          <div>
-            <div className="text-[15px] font-medium text-ink-0">View fire zone map</div>
-            <div className="font-mono text-[11px] text-ink-3 mt-0.5">{stats.totalLeads} ACTIVE LEADS</div>
-          </div>
-        </a>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function KPITile({ icon, label, value, sub, accent }) {
-  const icons = {
-    layers: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
-    flame: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 22c4-4 8-7.5 8-12a8 8 0 0 0-16 0c0 4.5 4 8 8 12z"/></svg>,
-    alert: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-    dollar: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-  }
-  return (
-    <div className="card-raised-lg p-5">
-      <div className={`icon-chip ${accent ? 'icon-chip-ember' : 'icon-chip-sunk'} mb-3`} style={{ color: accent ? 'var(--page)' : 'var(--ember)' }}>
-        {icons[icon]}
-      </div>
-      <div className="font-mono text-[11px] tracking-wider uppercase" style={{ color: '#8B8B96' }}>{label}</div>
-      <div className={`text-[38px] font-bold leading-none mt-1 tracking-tight ${accent ? 'text-ember' : 'text-ink-0'}`}>{value}</div>
-      <div className="font-mono text-[11px] text-ink-3 mt-1">{sub}</div>
-    </div>
-  )
-}
-
-function LeadCard({ lead, rank, isNew, onClick }) {
-  const scoreColor = lead.score >= 85 ? 'var(--ember)' : lead.score >= 75 ? 'var(--ember-hi)' : lead.score >= 50 ? 'var(--amber)' : 'var(--ink-3)'
-  const c = 2 * Math.PI * 22, o = c - (lead.score / 100) * c
-  return (
-    <div onClick={onClick} className={`card-raised card-hover p-4 flex items-center gap-4 cursor-pointer ${isNew ? 'lead-new' : ''}`}>
-      <span className="font-mono text-[11px] text-ink-2 w-5 text-center">{rank}</span>
-      <div className="relative w-14 h-14 flex-shrink-0">
-        <svg width="56" height="56" viewBox="0 0 56 56" className="score-ring">
-          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--card-sunk)" strokeWidth="3" />
-          <circle cx="28" cy="28" r="22" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center font-mono text-base font-bold" style={{ color: scoreColor }}>{lead.score}</div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] font-medium text-ink-0">{lead.address}</span>
-          {isNew && <span className="tag tag-new text-[9px]">NEW</span>}
-        </div>
-        <div className="font-mono text-[11px] text-ink-2 mt-1 tracking-wider">
-          {lead.beds > 0 && `${lead.beds} BED`}{lead.baths > 0 && ` \u00B7 ${lead.baths} BATH`}{lead.sqft > 0 && ` \u00B7 ${lead.sqft.toLocaleString()} SQFT`}{lead.year_built > 0 && ` \u00B7 BUILT ${lead.year_built}`}{lead.assessor_value > 0 && ` \u00B7 $${(lead.assessor_value / 1e6).toFixed(1)}M`}
-        </div>
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          <DamageTag damage={lead.dins_damage} />
-          <span className="tag tag-permit">{lead.permit_type}</span>
-          <span className="tag tag-stage">{lead.permit_stage}</span>
-          {lead.permitCount > 1 && <span className="tag tag-stack">{lead.permitCount} PERMITS</span>}
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        {lead.created_at && <span className="font-mono text-[11px] text-ink-3">{timeAgo(lead.created_at)}</span>}
-        <span className="btn-ghost text-[11px] py-1.5 px-3">Details &rarr;</span>
-      </div>
-    </div>
-  )
-}
-
-function DamageTag({ damage }) {
-  if (!damage || damage === 'Unknown') return null
-  const cls = damage.includes('Destroyed') ? 'tag-destroyed' : damage.includes('Major') ? 'tag-major' : damage.includes('Minor') ? 'tag-minor' : damage.includes('Affected') ? 'tag-affected' : 'tag-nodamage'
-  const label = damage.includes('Destroyed') ? 'DESTROYED' : damage.includes('Major') ? 'MAJOR' : damage.includes('Minor') ? 'MINOR' : damage.includes('Affected') ? 'AFFECTED' : 'NO DAMAGE'
-  return <span className={`tag ${cls}`}>{label}</span>
-}
-
-function LoadingSkeleton() {
+function Detail({ label, value }) {
   return (
     <div>
-      <div className="skeleton h-12 w-64 mb-6" />
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-36" style={{ borderRadius: 'var(--r-card-lg)' }} />)}
-      </div>
-      <div className="skeleton h-16 mb-6" style={{ borderRadius: 'var(--r-card)' }} />
-      {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-24 mb-3" style={{ borderRadius: 'var(--r-card)' }} />)}
+      <div className="text-xs text-slate-650 mb-1">{label}</div>
+      <div className="text-sm text-white font-medium">{value}</div>
     </div>
   )
 }
 
-function formatMoney(val) {
-  if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`
-  if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`
-  return `$${val}`
+function formatDate(d) {
+  if (!d) return '-'
+  try {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch { return d }
 }
 
-function timeAgo(dateStr) {
-  try {
-    const d = new Date(dateStr), now = new Date(), diff = now - d
-    const mins = Math.floor(diff / 60000), hours = Math.floor(diff / 3600000), days = Math.floor(diff / 86400000)
-    if (mins < 60) return `${mins}M AGO`
-    if (hours < 24) return `${hours}H AGO`
-    if (days < 7) return `${days}D AGO`
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()
-  } catch { return '' }
+function DraftCard({ draft, onUpdate }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium text-white">{draft.subject}</div>
+        <div className="flex items-center gap-2">
+          <StatusBadge status={draft.status} />
+          <button onClick={() => setExpanded(!expanded)} className="text-xs text-slate-500 hover:text-accent">
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-3">
+          <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap bg-navy-900 rounded-lg p-4 mb-3">{draft.body}</div>
+          {draft.status === 'pending_review' && (
+            <div className="flex gap-2">
+              <button className="btn-primary text-xs" onClick={() => onUpdate(draft.id, 'approved')}>Approve</button>
+              <button className="btn-secondary text-xs" onClick={() => navigator.clipboard.writeText(draft.body)}>Copy</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusBadge({ status }) {
+  const styles = { pending_review: 'bg-amber-500/15 text-amber-400', approved: 'bg-green-500/15 text-green-400', sent: 'bg-blue-500/15 text-blue-400' }
+  const labels = { pending_review: 'Pending', approved: 'Approved', sent: 'Sent' }
+  return <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${styles[status] || ''}`}>{labels[status] || status}</span>
+}
+
+function DamageBadge({ damage }) {
+  if (!damage || damage === 'Unknown') return null
+  const cls = damage.includes('Destroyed') ? 'badge-destroyed' : damage.includes('Major') ? 'badge-major' : damage.includes('Minor') ? 'badge-minor' : damage.includes('Affected') ? 'badge-affected' : 'badge-nodamage'
+  const label = damage.includes('Destroyed') ? 'Destroyed' : damage.includes('Major') ? 'Major' : damage.includes('Minor') ? 'Minor' : damage.includes('Affected') ? 'Affected' : 'No damage'
+  return <span className={`badge ${cls}`}>{label}</span>
 }
