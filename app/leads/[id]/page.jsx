@@ -27,8 +27,9 @@ export default function LeadDetailPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLead(null); setLoading(false); return }
       const ids = ctx.assignedLeadIds
-      setTrade(ctx.profile?.trade || 'gc')
-      const data = await getLeadDetail(params.id, ids)
+      const userTrade = ctx.profile?.trade || 'gc'
+      setTrade(userTrade)
+      const data = await getLeadDetail(params.id, ids, userTrade)
       if (!data || !data.id) {
         setLead(null)
         setLoading(false)
@@ -669,7 +670,7 @@ export default function LeadDetailPage() {
                 await updateDraftStatus(id, status)
                 const ctx = await getUserContext()
                 const ids = ctx?.assignedLeadIds
-                const updated = await getLeadDetail(params.id, ids)
+                const updated = await getLeadDetail(params.id, ids, trade)
                 setLead(updated)
               }} />
             ))}
