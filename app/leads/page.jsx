@@ -44,7 +44,8 @@ export default function AllLeadsPage() {
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
       const market = ctx.isAdmin ? getActiveMarket() : null
-      const data = await getAllLeads({}, ids, market)
+      const userTrade = ctx.profile?.trade || 'gc'
+      const data = await getAllLeads({}, ids, market, userTrade)
       const preset = TRADE_PRESETS[trade]
       let filtered = data
       if (preset?.permit_types) filtered = filtered.filter(l => preset.permit_types.some(pt => l.permit_type?.includes(pt)))
