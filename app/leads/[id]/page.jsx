@@ -6,6 +6,7 @@ import NotesPanel from '@/components/NotesPanel'
 import StreetView from '@/components/StreetView'
 import { useParams } from 'next/navigation'
 import { getLeadDetail, updateDraftStatus, getUserContext } from '@/lib/supabase'
+import { getTradeConfig } from '@/lib/tradeConfig'
 import { logActivity } from '@/lib/activity'
 
 export default function LeadDetailPage() {
@@ -13,6 +14,7 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [trade, setTrade] = useState('gc')
 
   useEffect(() => {
     const s = localStorage.getItem('bl_saved_leads')
@@ -25,6 +27,7 @@ export default function LeadDetailPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLead(null); setLoading(false); return }
       const ids = ctx.assignedLeadIds
+      setTrade(ctx.profile?.trade || 'gc')
       const data = await getLeadDetail(params.id, ids)
       if (!data || !data.id) {
         setLead(null)
@@ -50,8 +53,79 @@ export default function LeadDetailPage() {
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="text-accent animate-pulse text-sm">Loading lead...</div></div>
   if (!lead) return <div className="p-8 text-slate-500">Lead not found</div>
 
-  const scoreColor = lead.score >= 85 ? '#ff6b35' : lead.score >= 75 ? '#ff8f65' : lead.score >= 50 ? '#fbbf24' : '#6b7280'
+  const tc = getTradeConfig(trade)
+  const isEnviro = trade === 'enviro'
+  const scoreColor = lead.score >= 85 ? tc.color : lead.score >= 75 ? tc.color : lead.score >= 50 ? '#fbbf24' : '#6b7280'
   const totalPermits = 1 + (lead.stackedPermits?.length || 0)
+
+  // Enviro helpers
+  const yearBuilt = lead.year_built || 0
+  const isPre1978 = yearBuilt > 0 && yearBuilt < 1978
+  const riskLevel = yearBuilt <= 0 ? 'Unknown' : yearBuilt < 1950 ? 'VERY HIGH' : yearBuilt < 1970 ? 'HIGH' : yearBuilt < 1978 ? 'HIGH' : yearBuilt < 1986 ? 'MODERATE' : 'LOW'
+  const riskColor = riskLevel === 'VERY HIGH' || riskLevel === 'HIGH' ? '#FF4444' : riskLevel === 'MODERATE' ? '#FFaa33' : '#666'
+  const desc = (lead.permit_description || '').toLowerCase()
+
+  // Hazmat materials prediction based on year built
+  function getHazmatMaterials() {
+    if (yearBuilt <= 0) return []
+    const materials = []
+    if (yearBuilt < 1978) materials.push({ level: 'high', name: 'Lead paint on interior and exterior surfaces' })
+    if (yearBuilt < 1980) materials.push({ level: 'high', name: 'Popcorn/textured ceilings with asbestos' })
+    if (yearBuilt < 1975) materials.push({ level: 'high', name: '9x9 vinyl floor tiles with asbestos backing' })
+    if (yearBuilt < 1970) materials.push({ level: 'high', name: 'Pipe insulation wrap (asbestos)' })
+    if (yearBuilt < 1960) materials.push({ level: 'high', name: 'Asbestos in plaster walls and joint compound' })
+    if (yearBuilt < 1970) materials.push({ level: 'med', name: 'Vermiculite attic insulation' })
+    if (yearBuilt < 1975) materials.push({ level: 'med', name: 'HVAC duct tape and insulation' })
+    if (yearBuilt < 1950) materials.push({ level: 'med', name: 'Knob-and-tube wiring with asbestos cloth' })
+    if (yearBuilt < 1960) materials.push({ level: 'low', name: 'Asbestos cement siding (transite)' })
+    return materials
+  }
+
+  // Scope flags from permit description
+  function getScopeFlags() {
+    const flags = []
+    if (desc.includes('flooring') || desc.includes('floor tile')) flags.push('Remove existing flooring -- asbestos tile trigger')
+    if (desc.includes('drywall') || desc.includes('plaster')) flags.push('Remove drywall/plaster -- joint compound trigger')
+    if (desc.includes('ceiling') || desc.includes('popcorn')) flags.push('Ceiling work -- popcorn/texture asbestos trigger')
+    if (desc.includes('demo') || desc.includes('demolition')) flags.push('Demolition -- full hazmat survey required')
+    if (desc.includes('kitchen')) flags.push('Kitchen remodel -- floor tiles, cabinets, lead paint')
+    if (desc.includes('bathroom') || desc.includes('bath')) flags.push('Bathroom remodel -- tiles, pipe insulation')
+    if (desc.includes('insulation') || desc.includes('re-insulate')) flags.push('Insulation removal -- asbestos insulation trigger')
+    if (desc.includes('window')) flags.push('Window replacement -- glazing putty, asbestos caulk')
+    if (desc.includes('reroof') || desc.includes('roofing')) flags.push('Reroofing -- old roofing felt may contain asbestos')
+    if (desc.includes('pipe') || desc.includes('plumbing')) flags.push('Plumbing work -- pipe insulation disturbance')
+    if (flags.length === 0 && isPre1978) flags.push('Pre-1978 renovation -- testing recommended for any material disturbance')
+    return flags
+  }
+
+  // Job estimate based on sqft + year
+  function getJobEstimate() {
+    const sqft = lead.sqft || 0
+    if (yearBuilt <= 0) return { survey: '$300-700', abatement: 'TBD' }
+    if (sqft <= 0) return { survey: '$300-700', abatement: yearBuilt < 1960 ? '$5,000-25,000' : '$3,000-15,000' }
+    if (yearBuilt < 1950) {
+      if (sqft < 1500) return { survey: '$400-600', abatement: '$3,000-8,000' }
+      if (sqft < 3000) return { survey: '$500-800', abatement: '$8,000-18,000' }
+      if (sqft < 5000) return { survey: '$600-1,000', abatement: '$15,000-30,000' }
+      return { survey: '$800-1,200', abatement: '$25,000-50,000+' }
+    }
+    if (yearBuilt < 1970) {
+      if (sqft < 1500) return { survey: '$350-550', abatement: '$2,000-6,000' }
+      if (sqft < 3000) return { survey: '$400-700', abatement: '$5,000-12,000' }
+      if (sqft < 5000) return { survey: '$500-900', abatement: '$10,000-22,000' }
+      return { survey: '$700-1,100', abatement: '$18,000-35,000' }
+    }
+    if (yearBuilt < 1978) {
+      if (sqft < 1500) return { survey: '$300-500', abatement: '$1,500-4,000' }
+      if (sqft < 3000) return { survey: '$350-600', abatement: '$3,000-8,000' }
+      return { survey: '$400-700', abatement: '$6,000-15,000' }
+    }
+    return { survey: '$300-500', abatement: '$1,000-5,000' }
+  }
+
+  const hazmatMaterials = isEnviro ? getHazmatMaterials() : []
+  const scopeFlags = isEnviro ? getScopeFlags() : []
+  const jobEstimate = isEnviro ? getJobEstimate() : {}
 
   return (
     <div className="p-8 max-w-6xl">
@@ -67,8 +141,8 @@ export default function LeadDetailPage() {
             <h1 className="text-2xl font-bold text-white tracking-tight">{lead.address}</h1>
             <button onClick={toggleSave} className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors" title={saved ? 'Remove from saved' : 'Save lead'}>
               <svg width="22" height="22" viewBox="0 0 24 24"
-                fill={saved ? '#ff6b35' : 'none'}
-                stroke={saved ? '#ff6b35' : '#4a4d63'}
+                fill={saved ? tc.color : 'none'}
+                stroke={saved ? tc.color : '#4a4d63'}
                 strokeWidth="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
@@ -88,6 +162,12 @@ export default function LeadDetailPage() {
           </div>
           <div className="flex gap-2 mt-2 flex-wrap">
             {lead.fire_zone_match && <DamageBadge damage={lead.dins_damage} />}
+            {isEnviro && isPre1978 && (
+              <span className="badge" style={{ background: 'rgba(255,68,68,0.12)', color: '#FF4444' }}>PRE-1978</span>
+            )}
+            {isEnviro && (
+              <span className="badge" style={{ background: riskColor + '20', color: riskColor }}>{riskLevel} RISK</span>
+            )}
             <span className="badge badge-permit">{lead.permit_type}</span>
             <span className="badge badge-stage">{lead.permit_stage}</span>
             {totalPermits > 1 && <span className="badge badge-stack">{totalPermits} permits stacked</span>}
@@ -116,6 +196,110 @@ export default function LeadDetailPage() {
         <StreetView latitude={lead.latitude} longitude={lead.longitude} address={lead.address} />
       </div>
 
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Hazmat Risk Profile (shows ABOVE property details) */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && hazmatMaterials.length > 0 && (
+        <div className="card p-5 mb-6" style={{ border: '1px solid ' + riskColor + '30' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <span style={{ color: riskColor }}>&#9763;</span> Hazmat risk profile
+            </h3>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: riskColor + '20', color: riskColor }}>
+              {riskLevel}
+            </span>
+          </div>
+
+          <div className="mb-4">
+            <div className="text-xs text-slate-500 mb-1 font-mono uppercase tracking-wider">Year built</div>
+            <div className="text-3xl font-bold" style={{ color: isPre1978 ? riskColor : '#fff' }}>{yearBuilt || 'Unknown'}</div>
+          </div>
+
+          <div className="text-xs text-slate-500 mb-2 font-mono uppercase tracking-wider">Likely hazardous materials</div>
+          <div className="flex flex-col gap-2 mb-4">
+            {hazmatMaterials.map((m, i) => (
+              <div key={i} className="flex items-center gap-2.5 text-sm">
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                  background: m.level === 'high' ? '#FF4444' : m.level === 'med' ? '#FFaa33' : '#666',
+                }} />
+                <span style={{ color: m.level === 'high' ? '#ddd' : m.level === 'med' ? '#bbb' : '#888' }}>{m.name}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Est. test points</div>
+              <div className="text-lg font-bold text-white">{hazmatMaterials.length > 6 ? '8-12' : hazmatMaterials.length > 3 ? '4-8' : '2-4'} samples</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Payment source</div>
+              <div className="text-sm font-medium" style={{ color: lead.fire_zone_match ? '#00C896' : '#bbb' }}>
+                {lead.fire_zone_match ? 'Likely insurance (fire claim)' : 'Out-of-pocket'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Scope Flags */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && scopeFlags.length > 0 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <span style={{ color: '#FFaa33' }}>&#9888;</span> Scope flags
+          </h3>
+          <div className="flex flex-col gap-2">
+            {scopeFlags.map((f, i) => (
+              <div key={i} className="flex items-start gap-2.5 text-sm">
+                <span style={{ color: '#FFaa33', flexShrink: 0, marginTop: 1 }}>&#9888;</span>
+                <span className="text-slate-300">{f}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Job Estimate */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && isPre1978 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4">Job estimate</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Survey</div>
+              <div className="text-lg font-bold text-white">{jobEstimate.survey}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Abatement (if positive)</div>
+              <div className="text-lg font-bold" style={{ color: tc.color }}>{jobEstimate.abatement}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Property sqft</div>
+              <div className="text-lg font-bold text-white">{lead.sqft ? lead.sqft.toLocaleString() : '-'}</div>
+            </div>
+          </div>
+          {lead.fire_zone_match && isPre1978 && (
+            <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-2">Fire-specific additions</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Soil sampling + remediation</div>
+                  <div className="text-sm font-medium text-white">$5,000-15,000</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Mold assessment + remediation</div>
+                  <div className="text-sm font-medium text-white">$5,000-15,000</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Row 1: Property Details + Market-specific Intel */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
@@ -124,7 +308,7 @@ export default function LeadDetailPage() {
             <Detail label="Bedrooms" value={lead.beds || '-'} />
             <Detail label="Bathrooms" value={lead.baths || '-'} />
             <Detail label="Square feet" value={lead.sqft ? lead.sqft.toLocaleString() : '-'} />
-            <Detail label="Year built" value={lead.year_built || '-'} />
+            <Detail label="Year built" value={lead.year_built || '-'} highlight={isEnviro && isPre1978} highlightColor={riskColor} />
             <Detail label="Assessed value" value={lead.assessor_value ? `$${(lead.assessor_value / 1e6).toFixed(2)}M` : '-'} />
             <Detail label="APN" value={lead.apn || '-'} />
             <Detail label="Lot size" value={lead.lot_size_sqft ? `${lead.lot_size_sqft.toLocaleString()} sqft` : '-'} />
@@ -146,7 +330,7 @@ export default function LeadDetailPage() {
           </div>
         ) : (
           <div className="card p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Permit intel</h3>
+            <h3 className="text-sm font-semibold text-white mb-4">{isEnviro ? 'Permit trigger' : 'Permit intel'}</h3>
             <div className="grid grid-cols-2 gap-4">
               <Detail label="Permit type" value={lead.permit_type || '-'} />
               <Detail label="Permit stage" value={lead.permit_stage || '-'} />
@@ -154,12 +338,12 @@ export default function LeadDetailPage() {
               <Detail label="Contractor" value={lead.contractor_name === 'Not in public record' ? 'None listed' : (lead.contractor_name || 'None listed')} />
               <Detail label="Owner occupied" value={lead.owner_occupied === true ? 'Yes' : lead.owner_occupied === false ? 'No' : '-'} />
               <Detail label="Project scope" value={
-                (lead.permit_description || '').toLowerCase().includes('adu') ? 'ADU / Accessory Dwelling' :
-                (lead.permit_description || '').toLowerCase().includes('addition') ? 'Room Addition' :
-                (lead.permit_description || '').toLowerCase().includes('kitchen') ? 'Kitchen Remodel' :
-                (lead.permit_description || '').toLowerCase().includes('bathroom') ? 'Bathroom Remodel' :
-                (lead.permit_description || '').toLowerCase().includes('pool') ? 'Pool / Spa' :
-                (lead.permit_description || '').toLowerCase().includes('demo') ? 'Demolition' :
+                desc.includes('adu') ? 'ADU / Accessory Dwelling' :
+                desc.includes('addition') ? 'Room Addition' :
+                desc.includes('kitchen') ? 'Kitchen Remodel' :
+                desc.includes('bathroom') ? 'Bathroom Remodel' :
+                desc.includes('pool') ? 'Pool / Spa' :
+                desc.includes('demo') ? 'Demolition' :
                 lead.permit_type === 'Bldg-New' ? 'New Construction' :
                 lead.permit_type === 'Bldg-Addition' ? 'Addition' :
                 'Renovation / Repair'
@@ -186,7 +370,9 @@ export default function LeadDetailPage() {
         </div>
 
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Neighborhood activity</h3>
+          <h3 className="text-sm font-semibold text-white mb-4">
+            {isEnviro ? 'Cluster opportunity' : 'Neighborhood activity'}
+          </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-slate-650 mb-1">Permits within 500ft</div>
@@ -202,12 +388,14 @@ export default function LeadDetailPage() {
               <div className="text-2xl font-bold text-white">{lead.street_permit_count ?? '-'}</div>
             </div>
             <div className="col-span-2">
-              <div className="text-xs text-slate-650 mb-1">Block status</div>
+              <div className="text-xs text-slate-650 mb-1">{isEnviro ? 'Cluster status' : 'Block status'}</div>
               <div className="text-sm text-white font-medium">
-                {lead.neighbor_permits_500ft >= 10 ? (lead.fire_zone_match ? 'Active rebuild zone' : 'High construction activity') :
-                 lead.neighbor_permits_500ft >= 5 ? 'Moderate activity' :
-                 lead.neighbor_permits_500ft >= 1 ? 'Some activity' :
-                 lead.neighbor_permits_500ft === 0 ? 'No nearby permits' : '-'}
+                {isEnviro && lead.neighbor_permits_500ft >= 5
+                  ? 'Multi-home survey discount opportunity'
+                  : lead.neighbor_permits_500ft >= 10 ? (lead.fire_zone_match ? 'Active rebuild zone' : 'High construction activity') :
+                    lead.neighbor_permits_500ft >= 5 ? 'Moderate activity' :
+                    lead.neighbor_permits_500ft >= 1 ? 'Some activity' :
+                    lead.neighbor_permits_500ft === 0 ? 'No nearby permits' : '-'}
               </div>
             </div>
           </div>
@@ -221,6 +409,42 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Compliance Checklist */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && isPre1978 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span>&#128203;</span> Compliance checklist
+          </h3>
+          <div className="flex flex-col gap-2.5">
+            {[
+              'Asbestos survey by certified CAC/CSST',
+              'Lead paint testing (pre-1978 requirement)',
+              'SCAQMD Rule 1403 notification (if asbestos found, 10 day wait)',
+              'Abatement by C-22 or C-21 licensed contractor',
+              'Air monitoring during abatement',
+              'Clearance testing after abatement',
+              'Waste disposal documentation (manifest)',
+              'Provide clearance report to LADBS for permit',
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <span style={{
+                  width: 16, height: 16, borderRadius: 4,
+                  border: '1.5px solid #555',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, fontSize: 8,
+                }} />
+                <span className="text-slate-400">{item}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="text-xs text-slate-500">Estimated timeline: 3-6 weeks from survey to clearance</div>
+          </div>
+        </div>
+      )}
 
       {/* Permit Timeline */}
       <div className="card p-5 mb-6">
@@ -346,7 +570,9 @@ export default function LeadDetailPage() {
             {lead.drafts.map(draft => (
               <DraftCard key={draft.id} draft={draft} onUpdate={async (id, status) => {
                 await updateDraftStatus(id, status)
-                const updated = await getLeadDetail(params.id)
+                const ctx = await getUserContext()
+                const ids = ctx?.assignedLeadIds
+                const updated = await getLeadDetail(params.id, ids)
                 setLead(updated)
               }} />
             ))}
@@ -435,11 +661,11 @@ function PermitAccordion({ permit }) {
   )
 }
 
-function Detail({ label, value }) {
+function Detail({ label, value, highlight, highlightColor }) {
   return (
     <div>
       <div className="text-xs text-slate-650 mb-1">{label}</div>
-      <div className="text-sm text-white font-medium">{value}</div>
+      <div className="text-sm font-medium" style={{ color: highlight ? highlightColor : '#fff' }}>{value}</div>
     </div>
   )
 }
