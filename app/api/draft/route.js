@@ -76,12 +76,24 @@ function profileLead(lead, owner, score) {
 }
 
 // ═══════════════════════════════════════
-// AGENT 2: ANGLE SELECTOR (no API call)
+// AGENT 2: ANGLE SELECTOR (no API call, perf-aware)
 // ═══════════════════════════════════════
-function selectAngle(profile) {
+function selectAngle(profile, anglePerformance = []) {
+  // Build a set of deprioritized angles (< 50% approval after 10+ uses)
+  const badAngles = new Set()
+  anglePerformance.forEach(a => {
+    const total = (a.approved_clean || 0) + (a.approved_edited || 0) + (a.rejected || 0)
+    if (total >= 10) {
+      const approvalRate = ((a.approved_clean || 0) + (a.approved_edited || 0)) / total
+      if (approvalRate < 0.5) badAngles.add(a.angle)
+    }
+  })
+  // Build ranked candidate list (best match first)
+  const candidates = []
+
   // Fire rebuild, displaced homeowner
   if (profile.is_fire && profile.dins_damage === 'Destroyed' && !profile.has_contractor) {
-    return {
+    candidates.push({
       angle: 'empathy_expertise',
       talking_points: [
         'Acknowledge the difficulty of losing their home without being over-sympathetic',
@@ -89,12 +101,12 @@ function selectAngle(profile) {
         `Reference ${profile.neighbor_permits} nearby properties also rebuilding`,
         'Offer a no-pressure walkthrough to discuss the rebuild process',
       ],
-    }
+    })
   }
 
   // ADU or garage conversion
   if (profile.project_type === 'adu' || profile.project_type === 'garage_conversion') {
-    return {
+    candidates.push({
       angle: 'education_simplicity',
       talking_points: [
         'ADU permitting is complex, position as someone who navigates it daily',
@@ -102,12 +114,12 @@ function selectAngle(profile) {
         'Reference their specific permit type (detached ADU, garage conversion, etc)',
         'Keep it simple, homeowners are often overwhelmed by ADU regulations',
       ],
-    }
+    })
   }
 
   // New build, high value
-  if (profile.project_type === 'new_build' && profile.budget_tier === 'high' || profile.budget_tier === 'luxury') {
-    return {
+  if ((profile.project_type === 'new_build' && profile.budget_tier === 'high') || profile.budget_tier === 'luxury') {
+    candidates.push({
       angle: 'portfolio_credibility',
       talking_points: [
         'Lead with quality and craftsmanship, not price',
@@ -115,12 +127,12 @@ function selectAngle(profile) {
         'Mention project management capability for complex builds',
         `Property value ($${(profile.assessed_value / 1e6).toFixed(1)}M) suggests premium expectations`,
       ],
-    }
+    })
   }
 
   // Multiple permits, complex project
   if (profile.permit_stack_count >= 3) {
-    return {
+    candidates.push({
       angle: 'project_management',
       talking_points: [
         `${profile.permit_stack_count} permits indicate a complex multi-phase project`,
@@ -128,12 +140,12 @@ function selectAngle(profile) {
         'Mention timeline management and inspection scheduling',
         'Position as someone who handles the complexity so they don\'t have to',
       ],
-    }
+    })
   }
 
   // Active neighborhood
   if (profile.neighbor_permits >= 5) {
-    return {
+    candidates.push({
       angle: 'social_proof_convenience',
       talking_points: [
         `${profile.neighbor_permits} properties within 500ft have active permits`,
@@ -141,12 +153,12 @@ function selectAngle(profile) {
         'Convenience of having a contractor already on the block',
         'Mention familiarity with the neighborhood and local requirements',
       ],
-    }
+    })
   }
 
   // Kitchen or bathroom remodel
   if (profile.project_type === 'kitchen_remodel' || profile.project_type === 'bathroom_remodel') {
-    return {
+    candidates.push({
       angle: 'expertise_transformation',
       talking_points: [
         `Reference their specific project (${profile.project_type_label})`,
@@ -154,11 +166,11 @@ function selectAngle(profile) {
         'Focus on design options and material selections',
         'Keep budget discussion for the in-person meeting',
       ],
-    }
+    })
   }
 
-  // Default: timing + availability
-  return {
+  // Default always available
+  candidates.push({
     angle: 'timing_availability',
     talking_points: [
       'Reference the specific permit they filed',
@@ -166,13 +178,23 @@ function selectAngle(profile) {
       'Low-pressure CTA for a quick consultation',
       'Keep it brief and professional',
     ],
+  })
+
+  // Pick the first candidate that isn't deprioritized
+  const selected = candidates.find(c => !badAngles.has(c.angle)) || candidates[candidates.length - 1]
+
+  // Log if we skipped a bad angle
+  if (candidates[0] && candidates[0].angle !== selected.angle) {
+    console.log(`[AngleSelector] Skipped deprioritized angle "${candidates[0].angle}", using "${selected.angle}" instead`)
   }
+
+  return selected
 }
 
 // ═══════════════════════════════════════
 // AGENT 3-5: DRAFT WRITER + COMPLIANCE + SUBJECT LINES (Claude)
 // ═══════════════════════════════════════
-async function writeDraft(profile, angle, voiceProfile) {
+async function writeDraft(profile, angle, voiceProfile, subjectPreference) {
   const voiceInstructions = voiceProfile ? `
 CONTRACTOR VOICE PROFILE (match this style):
 - Formality level: ${voiceProfile.formality}/10
@@ -182,6 +204,8 @@ CONTRACTOR VOICE PROFILE (match this style):
 - Words to AVOID: ${(voiceProfile.banned_words || []).join(', ') || 'none learned yet'}
 - CTA style: ${voiceProfile.cta_style || 'casual_visit'}
 ` : ''
+
+  const subjectInstructions = subjectPreference ? `\nSUBJECT LINE PREFERENCE: ${subjectPreference}\n` : ''
 
   const prompt = `You are a skilled email copywriter for a construction contractor. Write a short outreach email to a property owner based on the lead intelligence below.
 
@@ -205,7 +229,7 @@ TALKING POINTS:
 ${angle.talking_points.map(tp => `- ${tp}`).join('\n')}
 
 ${voiceInstructions}
-
+${subjectInstructions}
 RULES (STRICT):
 1. Subject line: under 8 words, specific to their property or project. Generate 3 options.
 2. Email body: 4-6 sentences MAX. Short paragraphs.
@@ -298,8 +322,15 @@ export async function POST(request) {
     // Agent 1: Profile the lead
     const profile = profileLead(leadResp.data, ownerResp.data, scoreResp.data)
 
-    // Agent 2: Select the angle
-    const angle = selectAngle(profile)
+    // Fetch angle performance for this project type + market
+    const { data: anglePerf } = await adminSupabase
+      .from('angle_performance')
+      .select('angle,approved_clean,approved_edited,rejected,times_used')
+      .eq('lead_profile_type', profile.project_type)
+      .eq('market', profile.market)
+
+    // Agent 2: Select the angle (perf-aware)
+    const angle = selectAngle(profile, anglePerf || [])
 
     // Load voice profile for this contractor (if exists)
     const { data: voiceProfile } = await adminSupabase
@@ -308,8 +339,33 @@ export async function POST(request) {
       .eq('contractor_id', authUser.id)
       .single()
 
+    // Analyze subject line preferences (after 20+ selections)
+    const { data: subjectHistory } = await adminSupabase
+      .from('draft_memory')
+      .select('subject_line,lead_profile')
+      .eq('contractor_id', authUser.id)
+      .not('subject_line', 'is', null)
+      .in('status', ['approved_clean', 'approved_edited'])
+      .limit(50)
+
+    let subjectPreference = null
+    if (subjectHistory && subjectHistory.length >= 20) {
+      // Analyze patterns: question vs statement vs action
+      let questions = 0, statements = 0, action = 0
+      subjectHistory.forEach(s => {
+        const sub = s.subject_line || ''
+        if (sub.includes('?')) questions++
+        else if (sub.match(/^(your|the|a)\s/i)) statements++
+        else action++
+      })
+      const total = questions + statements + action
+      if (questions / total > 0.5) subjectPreference = 'This contractor prefers question-style subject lines (e.g. "Ready to start your rebuild?")'
+      else if (statements / total > 0.5) subjectPreference = 'This contractor prefers descriptive subject lines (e.g. "Your Marquette St rebuild project")'
+      else if (action / total > 0.5) subjectPreference = 'This contractor prefers action-oriented subject lines (e.g. "Let\'s talk about your project")'
+    }
+
     // Agent 3-5: Write the draft
-    const draft = await writeDraft(profile, angle, voiceProfile)
+    const draft = await writeDraft(profile, angle, voiceProfile, subjectPreference)
 
     // Save to drafts table
     const { data: savedDraft, error: draftError } = await adminSupabase
@@ -334,7 +390,7 @@ export async function POST(request) {
       draft_id: savedDraft.id,
       contractor_id: authUser.id,
       lead_id,
-      lead_profile: profile,
+      lead_profile: { ...profile, all_subjects: draft.subjects },
       angle: angle.angle,
       subject_line: draft.subjects[0],
       original_body: draft.body,

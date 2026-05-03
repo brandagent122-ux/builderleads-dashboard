@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getDrafts, updateDraftStatus, getUserContext, getSession } from '@/lib/supabase'
+import { getDrafts, getUserContext, getSession } from '@/lib/supabase'
 
 function TypingText({ text, speed = 12, onComplete, box }) {
   const [displayed, setDisplayed] = useState('')
@@ -80,12 +80,45 @@ function Connector({ lit }) {
   </div>
 }
 
+function SubjectPicker({ subjects, selected, onSelect, compact = false }) {
+  if (!subjects || subjects.length <= 1) return null
+  return (
+    <div style={{ display:'flex', flexDirection: compact ? 'column' : 'row', gap: compact ? 4 : 6, marginBottom: compact ? 8 : 12 }}>
+      {subjects.map((s, i) => (
+        <button key={i} onClick={() => onSelect(s)}
+          style={{
+            flex: compact ? undefined : 1,
+            padding: compact ? '6px 10px' : '8px 12px',
+            borderRadius: 8,
+            border: `1px solid ${selected === s ? 'var(--ember,#FF7A3D)' : 'rgba(255,255,255,0.06)'}`,
+            background: selected === s ? 'rgba(255,122,61,0.08)' : 'rgba(255,255,255,0.02)',
+            color: selected === s ? 'var(--ember,#FF7A3D)' : 'var(--color-text-secondary,#aaa)',
+            fontSize: compact ? 11 : 12,
+            fontWeight: 500,
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s',
+          }}>
+          <span style={{ fontSize:9, fontFamily:'var(--font-mono,monospace)', opacity:0.5, marginRight:6 }}>#{i+1}</span>
+          {s}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function OutreachPage() {
   const [drafts, setDrafts] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expanded, setExpanded] = useState(null)
   const [userCtx, setUserCtx] = useState(null)
+
+  const [editBodies, setEditBodies] = useState({})
+  const [editMode, setEditMode] = useState({})
+  const [selectedSubjects, setSelectedSubjects] = useState({})
+  const [draftSubjects, setDraftSubjects] = useState({})
+  const [learnLoading, setLearnLoading] = useState({})
 
   const [generating, setGenerating] = useState(false)
   const [genAddress, setGenAddress] = useState('')
@@ -95,14 +128,30 @@ export default function OutreachPage() {
   const [genDraft, setGenDraft] = useState(null)
   const [typingPhase, setTypingPhase] = useState('')
   const [genStatus, setGenStatus] = useState('DRAFTING')
+  const [genSelectedSubject, setGenSelectedSubject] = useState(null)
   const emailBoxRef = useRef(null)
 
-  // Always load ALL drafts (no market filter on outreach page)
   async function loadDrafts(ctx, statusFilter) {
     const c = ctx || userCtx
     if (!c) return
     const data = await getDrafts(statusFilter === 'all' ? null : statusFilter, c.assignedLeadIds, null)
     setDrafts(data)
+    await loadDraftSubjects(data)
+  }
+
+  async function loadDraftSubjects(draftList) {
+    if (!draftList || draftList.length === 0) return
+    try {
+      const session = await getSession()
+      const draftIds = draftList.map(d => d.id)
+      const resp = await fetch('/api/draft/subjects?' + new URLSearchParams({ ids: draftIds.join(',') }), {
+        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        if (data.subjects) setDraftSubjects(prev => ({ ...prev, ...data.subjects }))
+      }
+    } catch {}
   }
 
   useEffect(() => {
@@ -112,13 +161,13 @@ export default function OutreachPage() {
       setUserCtx(ctx)
       const data = await getDrafts(null, ctx.assignedLeadIds, null)
       setDrafts(data)
+      await loadDraftSubjects(data)
       setLoading(false)
     }
     setLoading(true)
     load()
   }, [])
 
-  // Filter change reloads
   useEffect(() => {
     if (userCtx) {
       setLoading(true)
@@ -126,7 +175,6 @@ export default function OutreachPage() {
     }
   }, [filter])
 
-  // Check for pending draft request
   useEffect(() => {
     const raw = localStorage.getItem('bl_draft_request')
     if (raw) {
@@ -144,6 +192,7 @@ export default function OutreachPage() {
     setGenDraft(null)
     setTypingPhase('')
     setGenStatus('DRAFTING')
+    setGenSelectedSubject(null)
     setAgentStates(['idle','idle','idle','idle'])
     setAgentTimes(['','','',''])
     setConnectors([false,false,false])
@@ -186,19 +235,74 @@ export default function OutreachPage() {
     setAgentTimes(p => [p[0],p[1],p[2],fmt(t0)])
 
     setGenDraft(result.draft)
+    setGenSelectedSubject(result.draft.subjects?.[0] || 'Outreach')
     setTypingPhase('subject')
+  }
+
+  async function callLearn(draftId, action, extras = {}) {
+    setLearnLoading(prev => ({ ...prev, [draftId]: true }))
+    try {
+      const session = await getSession()
+      const resp = await fetch('/api/draft/learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ draft_id: draftId, action, ...extras }),
+      })
+      const data = await resp.json()
+      if (data.success) await loadDrafts(userCtx, filter)
+      return data
+    } catch (err) {
+      console.error('Learn error:', err)
+    } finally {
+      setLearnLoading(prev => ({ ...prev, [draftId]: false }))
+    }
   }
 
   async function handleApproveNew() {
     if (!genDraft) return
-    await updateDraftStatus(genDraft.id, 'approved')
-    await loadDrafts(userCtx, filter)
+    await callLearn(genDraft.id, 'approve', { selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
     setGenerating(false)
   }
 
-  async function handleStatusUpdate(id, status) {
-    await updateDraftStatus(id, status)
-    await loadDrafts(userCtx, filter)
+  async function handleEditApproveNew() {
+    if (!genDraft) return
+    const editedBody = editBodies[`gen_${genDraft.id}`] || genDraft.body
+    await callLearn(genDraft.id, 'edit_approve', { edited_body: editedBody, selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
+    setGenerating(false)
+  }
+
+  async function handleApprove(draftId) {
+    await callLearn(draftId, 'approve', { selected_subject: selectedSubjects[draftId], all_subjects: draftSubjects[draftId] })
+    setEditMode(prev => ({ ...prev, [draftId]: false }))
+  }
+
+  async function handleEditApprove(draftId) {
+    const editedBody = editBodies[draftId]
+    if (!editedBody) return
+    await callLearn(draftId, 'edit_approve', { edited_body: editedBody, selected_subject: selectedSubjects[draftId], all_subjects: draftSubjects[draftId] })
+    setEditMode(prev => ({ ...prev, [draftId]: false }))
+  }
+
+  async function handleReject(draftId) {
+    await callLearn(draftId, 'reject')
+  }
+
+  async function handleMarkSent(draftId) {
+    try {
+      const { supabase } = await import('@/lib/supabase')
+      await supabase.from('drafts').update({ status: 'sent' }).eq('id', draftId)
+      await loadDrafts(userCtx, filter)
+    } catch {}
+  }
+
+  function toggleEdit(draftId, currentBody) {
+    setEditMode(prev => {
+      const isEditing = !prev[draftId]
+      if (isEditing && !editBodies[draftId]) {
+        setEditBodies(p => ({ ...p, [draftId]: currentBody }))
+      }
+      return { ...prev, [draftId]: isEditing }
+    })
   }
 
   function fmt(t0) { return ((Date.now()-t0)/1000).toFixed(1)+'s' }
@@ -224,7 +328,7 @@ export default function OutreachPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Outreach Queue</h1>
-          <p className="text-sm text-slate-500 mt-1">Review, approve, and track outreach drafts</p>
+          <p className="text-sm text-slate-500 mt-1">Review, edit, and approve outreach drafts</p>
         </div>
         <div className="text-sm text-slate-500">{counts.all} emails</div>
       </div>
@@ -263,11 +367,20 @@ export default function OutreachPage() {
               background:'var(--color-background-secondary,#19191D)', padding:'1.25rem', position:'relative', overflow:'hidden', minHeight:160,
             }}>
               <div style={{ position:'absolute', bottom:0, left:0, height:1, width:typingPhase==='done'?'100%':'0%', background:'linear-gradient(90deg,transparent,rgba(127,119,221,0.4),rgba(93,202,165,0.3),transparent)', transition:'width 3s ease' }} />
+
+              {typingPhase === 'done' && genDraft.subjects?.length > 1 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize:9, fontFamily:'var(--font-mono,monospace)', color:'var(--color-text-tertiary,#555)', marginBottom:6, letterSpacing:0.5 }}>SUBJECT LINE</div>
+                  <SubjectPicker subjects={genDraft.subjects} selected={genSelectedSubject} onSelect={setGenSelectedSubject} />
+                </div>
+              )}
+
               <div style={{ fontSize:15, fontWeight:500, color:'var(--color-text-primary,#fff)', marginBottom:16, minHeight:22 }}>
                 {typingPhase === 'subject' ? (
                   <TypingText text={genDraft.subjects?.[0] || 'Outreach'} speed={25} box={emailBoxRef} onComplete={() => setTypingPhase('body')} />
-                ) : (typingPhase === 'body' || typingPhase === 'done') ? (genDraft.subjects?.[0] || 'Outreach') : null}
+                ) : (typingPhase === 'body' || typingPhase === 'done') ? (genSelectedSubject || genDraft.subjects?.[0] || 'Outreach') : null}
               </div>
+
               <div style={{ fontSize:13, lineHeight:1.8, color:'var(--color-text-secondary,#aaa)' }}>
                 {typingPhase === 'body' ? (
                   <TypingText text={genDraft.body} speed={12} box={emailBoxRef} onComplete={() => {
@@ -276,24 +389,38 @@ export default function OutreachPage() {
                     loadDrafts(userCtx, filter)
                   }} />
                 ) : typingPhase === 'done' ? (
-                  <span dangerouslySetInnerHTML={{ __html: genDraft.body.replace(/\n/g, '<br>') }} />
+                  editMode[`gen_${genDraft.id}`] ? (
+                    <textarea
+                      value={editBodies[`gen_${genDraft.id}`] || genDraft.body}
+                      onChange={e => setEditBodies(prev => ({ ...prev, [`gen_${genDraft.id}`]: e.target.value }))}
+                      style={{
+                        width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)',
+                        borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8,
+                        fontFamily:'inherit', resize:'vertical', outline:'none',
+                      }}
+                    />
+                  ) : (
+                    <span dangerouslySetInnerHTML={{ __html: genDraft.body.replace(/\n/g, '<br>') }} />
+                  )
                 ) : null}
               </div>
 
               {typingPhase === 'done' && (
-                <div style={{ display:'flex', gap:8, marginTop:16, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.04)' }}>
-                  <button onClick={handleApproveNew}
-                    style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.15)', cursor:'pointer' }}>
-                    Approve
-                  </button>
-                  <button onClick={() => navigator.clipboard.writeText(genDraft.body)}
-                    style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>
-                    Copy to clipboard
-                  </button>
-                  <a href={`/leads/${genDraft.lead_id || ''}`}
-                    style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none', cursor:'pointer' }}>
-                    View lead
-                  </a>
+                <div style={{ display:'flex', gap:8, marginTop:16, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.04)', flexWrap:'wrap' }}>
+                  {!editMode[`gen_${genDraft.id}`] ? (
+                    <>
+                      <button onClick={handleApproveNew} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.15)', cursor:'pointer' }}>Approve</button>
+                      <button onClick={() => { setEditBodies(prev => ({ ...prev, [`gen_${genDraft.id}`]: genDraft.body })); setEditMode(prev => ({ ...prev, [`gen_${genDraft.id}`]: true })) }}
+                        style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,122,61,0.08)', color:'var(--ember,#FF7A3D)', border:'1px solid rgba(255,122,61,0.15)', cursor:'pointer' }}>Edit</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={handleEditApproveNew} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.15)', cursor:'pointer' }}>Save & Approve</button>
+                      <button onClick={() => setEditMode(prev => ({ ...prev, [`gen_${genDraft.id}`]: false }))} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>Cancel edit</button>
+                    </>
+                  )}
+                  <button onClick={() => navigator.clipboard.writeText(editBodies[`gen_${genDraft.id}`] || genDraft.body)} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>Copy</button>
+                  <a href={`/leads/${genDraft.lead_id || ''}`} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none', cursor:'pointer' }}>View lead</a>
                 </div>
               )}
             </div>
@@ -314,8 +441,12 @@ export default function OutreachPage() {
         <div className="flex flex-col gap-3">
           {drafts.map(draft => {
             const isExpanded = expanded === draft.id
+            const isEditing = editMode[draft.id]
+            const isLoading = learnLoading[draft.id]
+            const subjects = draftSubjects[draft.id] || []
+            const currentSubject = selectedSubjects[draft.id] || draft.subject
             return (
-              <div key={draft.id} className="card p-5">
+              <div key={draft.id} className="card p-5" style={{ opacity: isLoading ? 0.6 : 1, transition: 'opacity 0.3s' }}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
@@ -323,31 +454,58 @@ export default function OutreachPage() {
                       <span className="text-xs font-bold font-mono" style={{ color: draft.score >= 75 ? '#ff6b35' : '#fbbf24' }}>{draft.score}</span>
                       <StatusBadge status={draft.status} />
                     </div>
-                    <div className="text-sm text-accent-light font-medium">{draft.subject}</div>
+                    <div className="text-sm text-accent-light font-medium">{currentSubject}</div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button onClick={() => setExpanded(isExpanded ? null : draft.id)} className="btn-secondary text-xs py-1.5 px-3">
                       {isExpanded ? 'Collapse' : 'Preview'}
                     </button>
-                    {draft.status === 'pending_review' && (
-                      <button className="btn-primary text-xs py-1.5 px-3" onClick={() => handleStatusUpdate(draft.id, 'approved')}>Approve</button>
-                    )}
                   </div>
                 </div>
                 {!isExpanded && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{draft.body?.substring(0, 150)}...</p>}
                 {isExpanded && (
                   <div className="mt-4">
-                    <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap rounded-lg p-4 mb-3" style={{ background:'var(--card-sunk,#19191D)', border:'1px solid rgba(255,255,255,0.04)' }}>
-                      {draft.body}
-                    </div>
+                    {subjects.length > 1 && draft.status === 'pending_review' && (
+                      <div style={{ marginBottom:12 }}>
+                        <div style={{ fontSize:9, fontFamily:'var(--font-mono,monospace)', color:'var(--color-text-tertiary,#555)', marginBottom:6, letterSpacing:0.5 }}>CHOOSE SUBJECT LINE</div>
+                        <SubjectPicker subjects={subjects} selected={currentSubject} onSelect={s => setSelectedSubjects(prev => ({ ...prev, [draft.id]: s }))} compact />
+                      </div>
+                    )}
+
+                    {isEditing ? (
+                      <textarea
+                        value={editBodies[draft.id] || draft.body}
+                        onChange={e => setEditBodies(prev => ({ ...prev, [draft.id]: e.target.value }))}
+                        style={{
+                          width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)',
+                          borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8,
+                          fontFamily:'inherit', resize:'vertical', outline:'none', marginBottom:12,
+                        }}
+                      />
+                    ) : (
+                      <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap rounded-lg p-4 mb-3" style={{ background:'var(--card-sunk,#19191D)', border:'1px solid rgba(255,255,255,0.04)' }}>
+                        {draft.body}
+                      </div>
+                    )}
+
                     <div className="flex gap-2 flex-wrap">
-                      {draft.status === 'pending_review' && (
-                        <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#4ade8015', color:'#4ade80', border:'1px solid #4ade8020' }} onClick={() => handleStatusUpdate(draft.id, 'approved')}>Approve</button>
+                      {draft.status === 'pending_review' && !isEditing && (
+                        <>
+                          <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#4ade8015', color:'#4ade80', border:'1px solid #4ade8020' }} onClick={() => handleApprove(draft.id)} disabled={isLoading}>Approve</button>
+                          <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,122,61,0.08)', color:'var(--ember,#FF7A3D)', border:'1px solid rgba(255,122,61,0.15)' }} onClick={() => toggleEdit(draft.id, draft.body)}>Edit</button>
+                          <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(248,113,113,0.08)', color:'#f87171', border:'1px solid rgba(248,113,113,0.15)' }} onClick={() => handleReject(draft.id)} disabled={isLoading}>Reject</button>
+                        </>
+                      )}
+                      {draft.status === 'pending_review' && isEditing && (
+                        <>
+                          <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#4ade8015', color:'#4ade80', border:'1px solid #4ade8020' }} onClick={() => handleEditApprove(draft.id)} disabled={isLoading}>Save & Approve</button>
+                          <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)' }} onClick={() => toggleEdit(draft.id, draft.body)}>Cancel edit</button>
+                        </>
                       )}
                       {draft.status === 'approved' && (
-                        <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#3b82f615', color:'#60a5fa', border:'1px solid #3b82f620' }} onClick={() => handleStatusUpdate(draft.id, 'sent')}>Mark as sent</button>
+                        <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#3b82f615', color:'#60a5fa', border:'1px solid #3b82f620' }} onClick={() => handleMarkSent(draft.id)}>Mark as sent</button>
                       )}
-                      <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)' }} onClick={() => navigator.clipboard.writeText(draft.body)}>Copy to clipboard</button>
+                      <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)' }} onClick={() => navigator.clipboard.writeText(editBodies[draft.id] || draft.body)}>Copy</button>
                       <a href={`/leads/${draft.lead_id}`} className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none' }}>View lead</a>
                     </div>
                   </div>
@@ -364,7 +522,7 @@ export default function OutreachPage() {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 function StatusBadge({ status }) {
-  const styles = { pending_review: 'bg-amber-500/15 text-amber-400', approved: 'bg-green-500/15 text-green-400', sent: 'bg-blue-500/15 text-blue-400' }
-  const labels = { pending_review: 'Pending', approved: 'Approved', sent: 'Sent' }
+  const styles = { pending_review: 'bg-amber-500/15 text-amber-400', approved: 'bg-green-500/15 text-green-400', sent: 'bg-blue-500/15 text-blue-400', rejected: 'bg-red-500/15 text-red-400' }
+  const labels = { pending_review: 'Pending', approved: 'Approved', sent: 'Sent', rejected: 'Rejected' }
   return <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${styles[status] || ''}`}>{labels[status] || status}</span>
 }
