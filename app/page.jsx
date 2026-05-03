@@ -22,32 +22,31 @@ export default function CommandCenter() {
 
     const market = ctx.isAdmin ? getActiveMarket() : null
 
-    // Determine if current market is fire-type
-    try {
-      const marketsResp = await fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] }))
-      const markets = marketsResp.markets || []
-      if (market && market !== 'all') {
-        const m = markets.find(mk => mk.slug === market)
-        setIsFireMarket(m?.fire_filter === true)
-        setMarketName(m?.name || market)
-      } else if (ctx.assignedLeadIds) {
-        // Client user: check if any assigned leads are in fire markets
-        // For now, default to checking if palisades
-        setIsFireMarket(false)
-        setMarketName('Your territory')
-      } else {
-        setIsFireMarket(true)
-        setMarketName('All Markets')
-      }
-    } catch {
-      setIsFireMarket(true)
-    }
-
-    const [s, leads] = await Promise.all([
+    // Fetch data first
+    const [s, leads, marketsResp] = await Promise.all([
       getStats(ctx.assignedLeadIds, market, userTrade),
       getTopLeads(10, ctx.assignedLeadIds, market, userTrade),
+      fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] })),
     ])
     setStats(s)
+    setTopLeads(leads)
+
+    // Determine fire vs general market
+    const markets = marketsResp.markets || []
+    if (ctx.isAdmin && market && market !== 'all') {
+      const m = markets.find(mk => mk.slug === market)
+      setIsFireMarket(m?.fire_filter === true)
+      setMarketName(m?.name || market)
+    } else if (ctx.assignedLeadIds) {
+      // Client user: check their actual leads for fire indicators
+      const hasFireLeads = leads.some(l => l.fire_zone_match || (l.dins_damage && l.dins_damage !== 'Unknown' && l.dins_damage !== 'No Damage'))
+      setIsFireMarket(hasFireLeads)
+      setMarketName('Your territory')
+    } else {
+      // Admin on "all markets"
+      setIsFireMarket(true)
+      setMarketName('All Markets')
+    }
     setTopLeads(leads)
     setLoading(false)
     logActivity('command_center_viewed', market || 'all')

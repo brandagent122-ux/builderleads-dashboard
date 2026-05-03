@@ -48,13 +48,21 @@ export default function AllLeadsPage() {
       const userTrade = ctx.profile?.trade || 'gc'
 
       // Determine fire vs general market
-      try {
-        const mkResp = await fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] }))
-        const mk = (mkResp.markets || []).find(m => m.slug === market)
-        setIsFireMarket(market ? mk?.fire_filter === true : true)
-      } catch { setIsFireMarket(true) }
+      if (ctx.isAdmin && market) {
+        try {
+          const mkResp = await fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] }))
+          const mk = (mkResp.markets || []).find(m => m.slug === market)
+          setIsFireMarket(mk?.fire_filter === true)
+        } catch { setIsFireMarket(true) }
+      }
 
       const data = await getAllLeads({}, ids, market, userTrade)
+
+      // For client users, detect fire market from their actual data
+      if (!ctx.isAdmin) {
+        const hasFireLeads = data.some(l => l.dins_damage && l.dins_damage !== 'Unknown' && l.dins_damage !== 'No Damage' && l.dins_damage !== '-')
+        setIsFireMarket(hasFireLeads)
+      }
       const preset = TRADE_PRESETS[trade]
       let filtered = data
       if (preset?.permit_types) filtered = filtered.filter(l => preset.permit_types.some(pt => l.permit_type?.includes(pt)))
