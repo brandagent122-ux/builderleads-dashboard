@@ -94,6 +94,8 @@ export default function LeadDetailPage() {
     if (desc.includes('window')) flags.push('Window replacement -- glazing putty, asbestos caulk')
     if (desc.includes('reroof') || desc.includes('roofing')) flags.push('Reroofing -- old roofing felt may contain asbestos')
     if (desc.includes('pipe') || desc.includes('plumbing')) flags.push('Plumbing work -- pipe insulation disturbance')
+    if (!hasPriorRoofing && isPre1978) flags.push('No roofing permit on record -- original roof materials likely contain asbestos')
+    if (!hasPriorAbatement && isPre1978) flags.push('No prior abatement -- all original hazardous materials likely intact')
     if (flags.length === 0 && isPre1978) flags.push('Pre-1978 renovation -- testing recommended for any material disturbance')
     return flags
   }
@@ -122,6 +124,20 @@ export default function LeadDetailPage() {
     }
     return { survey: '$300-500', abatement: '$1,000-5,000' }
   }
+
+  // Mold risk calculation (months since Palisades fire Jan 7, 2025)
+  const FIRE_DATE = new Date('2025-01-07')
+  const monthsSinceFire = Math.floor((new Date() - FIRE_DATE) / (1000 * 60 * 60 * 24 * 30))
+  const isFireDamaged = lead.fire_zone_match && lead.dins_damage && (lead.dins_damage.includes('Destroyed') || lead.dins_damage.includes('Major'))
+  const moldRisk = isFireDamaged && monthsSinceFire > 3 ? (monthsSinceFire > 12 ? 'VERY HIGH' : monthsSinceFire > 6 ? 'HIGH' : 'MODERATE') : null
+  const moldColor = moldRisk === 'VERY HIGH' ? '#FF4444' : moldRisk === 'HIGH' ? '#FF6644' : '#FFaa33'
+
+  // Permit history (from owners table, populated by permit history agent)
+  const hasPriorAbatement = lead.has_prior_abatement || false
+  const hasPriorRoofing = lead.has_prior_roofing || false
+  const priorAbatementDate = lead.prior_abatement_date || null
+  const priorRoofingDate = lead.prior_roofing_date || null
+  const totalHistoricalPermits = lead.total_historical_permits || 0
 
   const hazmatMaterials = isEnviro ? getHazmatMaterials() : []
   const scopeFlags = isEnviro ? getScopeFlags() : []
@@ -167,6 +183,9 @@ export default function LeadDetailPage() {
             )}
             {isEnviro && (
               <span className="badge" style={{ background: riskColor + '20', color: riskColor }}>{riskLevel} RISK</span>
+            )}
+            {isEnviro && moldRisk && (
+              <span className="badge" style={{ background: moldColor + '20', color: moldColor }}>MOLD: {moldRisk}</span>
             )}
             <span className="badge badge-permit">{lead.permit_type}</span>
             <span className="badge badge-stage">{lead.permit_stage}</span>
@@ -240,6 +259,84 @@ export default function LeadDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Mold Risk Alert (fire-damaged properties) */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && moldRisk && (
+        <div className="card p-5 mb-6" style={{ border: '1px solid ' + moldColor + '30' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <span style={{ fontSize: 18 }}>&#x1F7E0;</span> Mold risk assessment
+            </h3>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: moldColor + '20', color: moldColor }}>
+              {moldRisk}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-4 mb-3">
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Months since fire</div>
+              <div className="text-2xl font-bold" style={{ color: moldColor }}>{monthsSinceFire}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Fire damage</div>
+              <div className="text-sm font-medium text-white">{lead.dins_damage}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Water exposure</div>
+              <div className="text-sm font-medium" style={{ color: moldColor }}>
+                {monthsSinceFire > 12 ? 'Extended (16+ months)' : monthsSinceFire > 6 ? 'Prolonged' : 'Recent'}
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+            Fire department water saturation + {monthsSinceFire} months of exposure. Mold remediation likely required as additional scope. Estimate: $5,000-15,000 depending on spread.
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ENVIRO: Permit History at Address */}
+      {/* ═══════════════════════════════════════════════════ */}
+      {isEnviro && totalHistoricalPermits > 0 && (
+        <div className="card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span>&#x1F4C4;</span> Permit history at this address
+          </h3>
+          <div className="grid grid-cols-3 gap-4 mb-3">
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Total permits (all time)</div>
+              <div className="text-lg font-bold text-white">{totalHistoricalPermits}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Prior abatement</div>
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium" style={{ color: hasPriorAbatement ? '#FFaa33' : '#00C896' }}>
+                  {hasPriorAbatement ? 'Yes' : 'None on record'}
+                </div>
+              </div>
+              {priorAbatementDate && <div className="text-xs text-slate-500 mt-1">{priorAbatementDate}</div>}
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Prior roofing permit</div>
+              <div className="text-sm font-medium" style={{ color: hasPriorRoofing ? '#4A9EFF' : '#FF4444' }}>
+                {hasPriorRoofing ? 'Yes (roof replaced)' : 'None (original roof)'}
+              </div>
+              {priorRoofingDate && <div className="text-xs text-slate-500 mt-1">{priorRoofingDate}</div>}
+            </div>
+          </div>
+          {!hasPriorAbatement && isPre1978 && (
+            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              No prior abatement permits found. Pre-1978 home with original materials intact. Full survey recommended.
+            </div>
+          )}
+          {hasPriorAbatement && (
+            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              Previous abatement on record. Some areas may already be cleared. Ask homeowner for prior clearance reports before scoping.
+            </div>
+          )}
         </div>
       )}
 

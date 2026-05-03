@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase, getAllProfiles, updateProfile, getSession, getProfile } from '@/lib/supabase'
 
 const TIERS = ['starter', 'pro', 'enterprise']
-const TRADES = ['Builders/GC', 'Plumbing', 'HVAC', 'Electrical', 'Roofing', 'Solar', 'Landscape/Pool', 'Public Adjusters']
+const TRADES = [['gc','Builders/GC'],['enviro','Environmental Services'],['plumbing','Plumbing'],['hvac','HVAC'],['electrical','Electrical'],['roofing','Roofing'],['solar','Solar'],['publicadjuster','Public Adjusters']]
 const TIER_LIMITS = {
   starter: { max_leads: 50, max_unlocks: 0 },
   pro: { max_leads: 500, max_unlocks: 50 },
@@ -274,7 +274,7 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', fontSize: 13, color: '#fff', background: 'var(--card-sunk, #19191D)', outline: 'none' }}
             >
               <option value="">Select trade</option>
-              {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+              {TRADES.map(([slug,name]) => <option key={slug} value={slug}>{name}</option>)}
             </select>
           </div>
           <button
@@ -400,7 +400,7 @@ export default function AdminPage() {
                     style={{ padding: '6px 10px', borderRadius: 8, fontSize: 11, background: 'var(--card-sunk, #19191D)', color: '#fff', border: '1px solid rgba(255,255,255,0.06)', outline: 'none' }}
                   >
                     <option value="">No trade</option>
-                    {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+                    {TRADES.map(([slug,name]) => <option key={slug} value={slug}>{name}</option>)}
                   </select>
 
                   <button
