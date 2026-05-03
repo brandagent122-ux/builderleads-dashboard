@@ -31,6 +31,7 @@ export default function AllLeadsPage() {
   const [sortDir, setSortDir] = useState('desc')
   const [visibleCount, setVisibleCount] = useState(50)
   const [marketVersion, setMarketVersion] = useState(0)
+  const [isFireMarket, setIsFireMarket] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -45,6 +46,14 @@ export default function AllLeadsPage() {
       const ids = ctx.assignedLeadIds
       const market = ctx.isAdmin ? getActiveMarket() : null
       const userTrade = ctx.profile?.trade || 'gc'
+
+      // Determine fire vs general market
+      try {
+        const mkResp = await fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] }))
+        const mk = (mkResp.markets || []).find(m => m.slug === market)
+        setIsFireMarket(market ? mk?.fire_filter === true : true)
+      } catch { setIsFireMarket(true) }
+
       const data = await getAllLeads({}, ids, market, userTrade)
       const preset = TRADE_PRESETS[trade]
       let filtered = data
@@ -124,7 +133,7 @@ export default function AllLeadsPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink-0 tracking-tight">All Leads</h1>
           <p className="font-mono text-[12px] text-ink-2 mt-1 tracking-wider uppercase">
-            {leads.length} LEADS{trade !== 'all' ? ` \u00B7 ${TRADE_PRESETS[trade].label.toUpperCase()}` : ' \u00B7 FIRE ZONE'}
+            {leads.length} LEADS{trade !== 'all' ? ` \u00B7 ${TRADE_PRESETS[trade].label.toUpperCase()}` : isFireMarket ? ' \u00B7 FIRE ZONE' : ' \u00B7 CONSTRUCTION'}
             {selected.size > 0 && <span className="text-ember ml-2">({selected.size} SELECTED)</span>}
           </p>
         </div>
@@ -154,13 +163,15 @@ export default function AllLeadsPage() {
           <option value="90">90+</option><option value="80">80+</option>
           <option value="75">75+ (Hot)</option><option value="50">50+</option>
         </select>
-        <select value={dinsFilter} onChange={e => { setLoading(true); setDinsFilter(e.target.value) }}
-          className="input-sunk text-[13px] px-4 pr-9" style={{ minWidth: 130 }}>
-          <option value="">Damage: All</option>
-          <option value="Destroyed (>50%)">Destroyed</option><option value="Major (26-50%)">Major</option>
-          <option value="Minor (10-25%)">Minor</option><option value="Affected (1-9%)">Affected</option>
-          <option value="No Damage">No damage</option>
-        </select>
+        {isFireMarket && (
+          <select value={dinsFilter} onChange={e => { setLoading(true); setDinsFilter(e.target.value) }}
+            className="input-sunk text-[13px] px-4 pr-9" style={{ minWidth: 130 }}>
+            <option value="">Damage: All</option>
+            <option value="Destroyed (>50%)">Destroyed</option><option value="Major (26-50%)">Major</option>
+            <option value="Minor (10-25%)">Minor</option><option value="Affected (1-9%)">Affected</option>
+            <option value="No Damage">No damage</option>
+          </select>
+        )}
       </div>
 
       {trade !== 'all' && (
@@ -190,7 +201,11 @@ export default function AllLeadsPage() {
             <div className="flex-1 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('address')}>ADDRESS{arrow('address')}</div>
             <div className="w-28 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('permit_type')}>PERMIT{arrow('permit_type')}</div>
             <div className="w-24 font-mono text-[12px] text-ink-2 tracking-wider cursor-pointer select-none" onClick={() => toggleSort('permit_stage')}>STAGE{arrow('permit_stage')}</div>
-            <div className="w-24 font-mono text-[12px] text-ink-2 tracking-wider">DAMAGE</div>
+            {isFireMarket ? (
+              <div className="w-24 font-mono text-[12px] text-ink-2 tracking-wider">DAMAGE</div>
+            ) : (
+              <div className="w-28 font-mono text-[12px] text-ink-2 tracking-wider">PROJECT</div>
+            )}
             <div className="w-20 font-mono text-[12px] text-ink-2 tracking-wider text-right cursor-pointer select-none" onClick={() => toggleSort('assessor_value')}>VALUE{arrow('assessor_value')}</div>
             <div className="w-8" />
           </div>
@@ -216,7 +231,11 @@ export default function AllLeadsPage() {
                 </div>
                 <div className="w-28 font-mono text-[12px] text-ink-2">{lead.permit_type}</div>
                 <div className="w-24 font-mono text-[12px] text-ink-2">{lead.permit_stage}</div>
-                <div className="w-24"><DamageTag damage={lead.dins_damage} /></div>
+                {isFireMarket ? (
+                  <div className="w-24"><DamageTag damage={lead.dins_damage} /></div>
+                ) : (
+                  <div className="w-28"><ProjectTag permitType={lead.permit_type} /></div>
+                )}
                 <div className="w-20 font-mono text-[13px] text-ink-1 text-right font-medium">
                   {lead.assessor_value > 0 ? `$${(lead.assessor_value / 1e6).toFixed(1)}M` : '-'}
                 </div>
@@ -280,4 +299,19 @@ function DamageTag({ damage }) {
   const cls = damage.includes('Destroyed') ? 'tag-destroyed' : damage.includes('Major') ? 'tag-major' : damage.includes('Minor') ? 'tag-minor' : damage.includes('Affected') ? 'tag-affected' : 'tag-nodamage'
   const label = damage.includes('Destroyed') ? 'DESTROYED' : damage.includes('Major') ? 'MAJOR' : damage.includes('Minor') ? 'MINOR' : damage.includes('Affected') ? 'AFFECTED' : 'NO DAMAGE'
   return <span className={`tag ${cls}`}>{label}</span>
+}
+
+function ProjectTag({ permitType }) {
+  if (!permitType) return <span className="font-mono text-[12px] text-ink-2">-</span>
+  const labels = {
+    'Bldg-New': { label: 'NEW BUILD', bg: '#FF7A3D12', color: '#FF7A3D' },
+    'Bldg-Addition': { label: 'ADDITION', bg: '#3b82f612', color: '#60a5fa' },
+    'Bldg-Alter/Repair': { label: 'REMODEL', bg: '#a855f712', color: '#c084fc' },
+    'Bldg-Demolition': { label: 'DEMO', bg: '#f8717112', color: '#f87171' },
+    'Grading': { label: 'GRADING', bg: '#fbbf2412', color: '#fbbf24' },
+    'Swimming-Pool/Spa': { label: 'POOL', bg: '#14b8a612', color: '#2dd4bf' },
+    'Nonbldg-New': { label: 'NON-BLDG', bg: 'rgba(255,255,255,0.04)', color: '#888' },
+  }
+  const match = labels[permitType] || { label: permitType.replace('Bldg-','').toUpperCase().slice(0,10), bg: 'rgba(255,255,255,0.04)', color: '#888' }
+  return <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ background: match.bg, color: match.color, border: `1px solid ${match.color}18` }}>{match.label}</span>
 }
