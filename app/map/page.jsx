@@ -50,7 +50,7 @@ export default function MapPage() {
       // Load leads for the active sidebar market
       const market = ctx.isAdmin ? getActiveMarket() : null
       setSelectedCity(market || 'all')
-      const data = await getAllLeads({}, ctx.assignedLeadIds, market)
+      const data = await getAllLeads({}, ctx.assignedLeadIds, market, ctx.profile?.trade || 'gc')
       const withCoords = data.filter(l => l.latitude && l.longitude)
       setLeads(withCoords)
       setLoading(false)
@@ -84,7 +84,7 @@ export default function MapPage() {
     setSearch('')
 
     const market = slug === 'all' ? null : slug
-    const data = await getAllLeads({}, ctx.assignedLeadIds, market)
+    const data = await getAllLeads({}, ctx.assignedLeadIds, market, ctx.profile?.trade || 'gc')
     const withCoords = data.filter(l => l.latitude && l.longitude)
     setLeads(withCoords)
     setLoading(false)
