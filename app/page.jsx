@@ -20,7 +20,7 @@ export default function CommandCenter() {
     const tc = getTradeConfig(userTrade)
     setTradeConfig(tc)
 
-    const market = ctx.isAdmin ? getActiveMarket() : null
+    const market = getActiveMarket() || null
 
     // Fetch data first
     const [s, leads, marketsResp] = await Promise.all([
@@ -33,11 +33,11 @@ export default function CommandCenter() {
 
     // Determine fire vs general market
     const markets = marketsResp.markets || []
-    if (ctx.isAdmin && market && market !== 'all') {
+    if (market && market !== 'all') {
       const m = markets.find(mk => mk.slug === market)
       setIsFireMarket(m?.fire_filter === true)
       setMarketName(m?.name || market)
-    } else if (ctx.assignedLeadIds) {
+    } else if (ctx.assignedLeadIds && (!market || market === 'palisades')) {
       // Client user: check their actual leads for fire indicators
       const hasFireLeads = leads.some(l => l.fire_zone_match || (l.dins_damage && l.dins_damage !== 'Unknown' && l.dins_damage !== 'No Damage'))
       setIsFireMarket(hasFireLeads)

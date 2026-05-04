@@ -44,11 +44,11 @@ export default function AllLeadsPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
       const ids = ctx.assignedLeadIds
-      const market = ctx.isAdmin ? getActiveMarket() : null
+      const market = getActiveMarket() || null
       const userTrade = ctx.profile?.trade || 'gc'
 
       // Determine fire vs general market
-      if (ctx.isAdmin && market) {
+      if (market) {
         try {
           const mkResp = await fetch('/api/markets').then(r => r.json()).catch(() => ({ markets: [] }))
           const mk = (mkResp.markets || []).find(m => m.slug === market)
