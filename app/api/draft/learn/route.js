@@ -343,6 +343,15 @@ export async function POST(request) {
       return NextResponse.json({ success: true, action: 'subject_selected' })
     }
 
+    // ─── MARK SENT ───
+    if (action === 'mark_sent') {
+      await adminSupabase.from('drafts').update({ status: 'sent' }).eq('id', draft_id)
+      await adminSupabase.from('draft_memory')
+        .update({ status: 'sent' })
+        .eq('draft_id', draft_id)
+      return NextResponse.json({ success: true, action: 'marked_sent' })
+    }
+
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
 
   } catch (err) {

@@ -87,23 +87,37 @@ function SubjectPicker({ subjects, selected, onSelect, compact = false }) {
       {subjects.map((s, i) => (
         <button key={i} onClick={() => onSelect(s)}
           style={{
-            flex: compact ? undefined : 1,
-            padding: compact ? '6px 10px' : '8px 12px',
-            borderRadius: 8,
+            flex: compact ? undefined : 1, padding: compact ? '6px 10px' : '8px 12px', borderRadius: 8,
             border: `1px solid ${selected === s ? 'var(--ember,#FF7A3D)' : 'rgba(255,255,255,0.06)'}`,
             background: selected === s ? 'rgba(255,122,61,0.08)' : 'rgba(255,255,255,0.02)',
             color: selected === s ? 'var(--ember,#FF7A3D)' : 'var(--color-text-secondary,#aaa)',
-            fontSize: compact ? 11 : 12,
-            fontWeight: 500,
-            cursor: 'pointer',
-            textAlign: 'left',
-            transition: 'all 0.2s',
+            fontSize: compact ? 11 : 12, fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
           }}>
           <span style={{ fontSize:9, fontFamily:'var(--font-mono,monospace)', opacity:0.5, marginRight:6 }}>#{i+1}</span>
           {s}
         </button>
       ))}
     </div>
+  )
+}
+
+function CopyButton({ text, label = 'Copy' }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy() {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <button onClick={handleCopy} className="text-xs font-semibold py-2 px-4 rounded-lg" style={{
+      background: copied ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.04)',
+      color: copied ? '#4ade80' : '#888',
+      border: `1px solid ${copied ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)'}`,
+      transition: 'all 0.3s',
+    }}>
+      {copied ? 'Copied!' : label}
+    </button>
   )
 }
 
@@ -163,6 +177,25 @@ export default function OutreachPage() {
       setDrafts(data)
       await loadDraftSubjects(data)
       setLoading(false)
+
+      // Check for pending draft request AFTER loading existing drafts
+      const raw = localStorage.getItem('bl_draft_request')
+      if (raw) {
+        localStorage.removeItem('bl_draft_request')
+        try {
+          const req = JSON.parse(raw)
+          if (Date.now() - req.ts < 30000) {
+            // Check if draft already exists for this lead (prevent re-draft)
+            const existingDraft = data.find(d => d.lead_id === req.lead_id && d.status === 'pending_review')
+            if (!existingDraft) {
+              runDraftGeneration(req.lead_id, req.address)
+            } else {
+              // Just expand the existing draft instead of making a new one
+              setExpanded(existingDraft.id)
+            }
+          }
+        } catch {}
+      }
     }
     setLoading(true)
     load()
@@ -174,17 +207,6 @@ export default function OutreachPage() {
       loadDrafts(userCtx, filter).then(() => setLoading(false))
     }
   }, [filter])
-
-  useEffect(() => {
-    const raw = localStorage.getItem('bl_draft_request')
-    if (raw) {
-      localStorage.removeItem('bl_draft_request')
-      try {
-        const req = JSON.parse(raw)
-        if (Date.now() - req.ts < 30000) runDraftGeneration(req.lead_id, req.address)
-      } catch {}
-    }
-  }, [])
 
   async function runDraftGeneration(leadId, address) {
     setGenerating(true)
@@ -239,6 +261,7 @@ export default function OutreachPage() {
     setTypingPhase('subject')
   }
 
+  // ─── Call learn API then update state locally (no re-fetch) ───
   async function callLearn(draftId, action, extras = {}) {
     setLearnLoading(prev => ({ ...prev, [draftId]: true }))
     try {
@@ -249,7 +272,21 @@ export default function OutreachPage() {
         body: JSON.stringify({ draft_id: draftId, action, ...extras }),
       })
       const data = await resp.json()
-      if (data.success) await loadDrafts(userCtx, filter)
+      if (data.success) {
+        // Update local state instead of re-fetching from DB
+        const newStatus = action === 'approve' ? 'approved' : action === 'edit_approve' ? 'approved' : action === 'reject' ? 'rejected' : null
+        if (newStatus) {
+          setDrafts(prev => prev.map(d => {
+            if (d.id !== draftId) return d
+            return {
+              ...d,
+              status: newStatus,
+              body: extras.edited_body || d.body,
+              subject: extras.selected_subject || d.subject,
+            }
+          }))
+        }
+      }
       return data
     } catch (err) {
       console.error('Learn error:', err)
@@ -261,6 +298,11 @@ export default function OutreachPage() {
   async function handleApproveNew() {
     if (!genDraft) return
     await callLearn(genDraft.id, 'approve', { selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
+    // Add to drafts list locally
+    setDrafts(prev => [{
+      id: genDraft.id, lead_id: genDraft.lead_id, subject: genSelectedSubject || genDraft.subjects?.[0] || 'Outreach',
+      body: genDraft.body, status: 'approved', address: genAddress, score: 0, created_at: new Date().toISOString(),
+    }, ...prev])
     setGenerating(false)
   }
 
@@ -268,6 +310,10 @@ export default function OutreachPage() {
     if (!genDraft) return
     const editedBody = editBodies[`gen_${genDraft.id}`] || genDraft.body
     await callLearn(genDraft.id, 'edit_approve', { edited_body: editedBody, selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
+    setDrafts(prev => [{
+      id: genDraft.id, lead_id: genDraft.lead_id, subject: genSelectedSubject || genDraft.subjects?.[0] || 'Outreach',
+      body: editedBody, status: 'approved', address: genAddress, score: 0, created_at: new Date().toISOString(),
+    }, ...prev])
     setGenerating(false)
   }
 
@@ -288,11 +334,19 @@ export default function OutreachPage() {
   }
 
   async function handleMarkSent(draftId) {
+    setLearnLoading(prev => ({ ...prev, [draftId]: true }))
     try {
-      const { supabase } = await import('@/lib/supabase')
-      await supabase.from('drafts').update({ status: 'sent' }).eq('id', draftId)
-      await loadDrafts(userCtx, filter)
-    } catch {}
+      const session = await getSession()
+      await fetch('/api/draft/learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ draft_id: draftId, action: 'mark_sent' }),
+      })
+      // Update locally to 'sent'
+      setDrafts(prev => prev.map(d => d.id === draftId ? { ...d, status: 'sent' } : d))
+    } catch {} finally {
+      setLearnLoading(prev => ({ ...prev, [draftId]: false }))
+    }
   }
 
   function toggleEdit(draftId, currentBody) {
@@ -306,6 +360,9 @@ export default function OutreachPage() {
   }
 
   function fmt(t0) { return ((Date.now()-t0)/1000).toFixed(1)+'s' }
+
+  // Filter drafts for display based on current tab
+  const filteredDrafts = filter === 'all' ? drafts : drafts.filter(d => d.status === filter)
 
   const counts = {
     all: drafts.length + (generating ? 1 : 0),
@@ -386,18 +443,18 @@ export default function OutreachPage() {
                   <TypingText text={genDraft.body} speed={12} box={emailBoxRef} onComplete={() => {
                     setTypingPhase('done')
                     setGenStatus('COMPLETE')
-                    loadDrafts(userCtx, filter)
+                    // Add to drafts list so it shows in tabs
+                    setDrafts(prev => {
+                      if (prev.find(d => d.id === genDraft.id)) return prev
+                      return [{ id: genDraft.id, lead_id: genDraft.lead_id, subject: genDraft.subjects?.[0] || 'Outreach', body: genDraft.body, status: 'pending_review', address: genAddress, score: 0, created_at: new Date().toISOString() }, ...prev]
+                    })
                   }} />
                 ) : typingPhase === 'done' ? (
                   editMode[`gen_${genDraft.id}`] ? (
                     <textarea
                       value={editBodies[`gen_${genDraft.id}`] || genDraft.body}
                       onChange={e => setEditBodies(prev => ({ ...prev, [`gen_${genDraft.id}`]: e.target.value }))}
-                      style={{
-                        width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)',
-                        borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8,
-                        fontFamily:'inherit', resize:'vertical', outline:'none',
-                      }}
+                      style={{ width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)', borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8, fontFamily:'inherit', resize:'vertical', outline:'none' }}
                     />
                   ) : (
                     <span dangerouslySetInnerHTML={{ __html: genDraft.body.replace(/\n/g, '<br>') }} />
@@ -419,7 +476,7 @@ export default function OutreachPage() {
                       <button onClick={() => setEditMode(prev => ({ ...prev, [`gen_${genDraft.id}`]: false }))} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>Cancel edit</button>
                     </>
                   )}
-                  <button onClick={() => navigator.clipboard.writeText(editBodies[`gen_${genDraft.id}`] || genDraft.body)} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer' }}>Copy</button>
+                  <CopyButton text={editBodies[`gen_${genDraft.id}`] || genDraft.body} />
                   <a href={`/leads/${genDraft.lead_id || ''}`} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none', cursor:'pointer' }}>View lead</a>
                 </div>
               )}
@@ -435,11 +492,11 @@ export default function OutreachPage() {
       {/* Draft list */}
       {loading && !generating ? (
         <div className="text-center py-20 text-accent animate-pulse text-sm">Loading drafts...</div>
-      ) : drafts.length === 0 && !generating ? (
+      ) : filteredDrafts.length === 0 && !generating ? (
         <div className="text-center py-20 text-slate-650">No drafts match this filter</div>
       ) : (
         <div className="flex flex-col gap-3">
-          {drafts.map(draft => {
+          {filteredDrafts.map(draft => {
             const isExpanded = expanded === draft.id
             const isEditing = editMode[draft.id]
             const isLoading = learnLoading[draft.id]
@@ -451,7 +508,7 @@ export default function OutreachPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <span className="text-sm font-semibold text-white">{draft.address}</span>
-                      <span className="text-xs font-bold font-mono" style={{ color: draft.score >= 75 ? '#ff6b35' : '#fbbf24' }}>{draft.score}</span>
+                      {draft.score > 0 && <span className="text-xs font-bold font-mono" style={{ color: draft.score >= 75 ? '#ff6b35' : '#fbbf24' }}>{draft.score}</span>}
                       <StatusBadge status={draft.status} />
                     </div>
                     <div className="text-sm text-accent-light font-medium">{currentSubject}</div>
@@ -476,11 +533,7 @@ export default function OutreachPage() {
                       <textarea
                         value={editBodies[draft.id] || draft.body}
                         onChange={e => setEditBodies(prev => ({ ...prev, [draft.id]: e.target.value }))}
-                        style={{
-                          width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)',
-                          borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8,
-                          fontFamily:'inherit', resize:'vertical', outline:'none', marginBottom:12,
-                        }}
+                        style={{ width:'100%', minHeight:200, background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,122,61,0.2)', borderRadius:8, padding:12, color:'var(--color-text-secondary,#aaa)', fontSize:13, lineHeight:1.8, fontFamily:'inherit', resize:'vertical', outline:'none', marginBottom:12 }}
                       />
                     ) : (
                       <div className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap rounded-lg p-4 mb-3" style={{ background:'var(--card-sunk,#19191D)', border:'1px solid rgba(255,255,255,0.04)' }}>
@@ -503,9 +556,9 @@ export default function OutreachPage() {
                         </>
                       )}
                       {draft.status === 'approved' && (
-                        <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#3b82f615', color:'#60a5fa', border:'1px solid #3b82f620' }} onClick={() => handleMarkSent(draft.id)}>Mark as sent</button>
+                        <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#3b82f615', color:'#60a5fa', border:'1px solid #3b82f620' }} onClick={() => handleMarkSent(draft.id)} disabled={isLoading}>Mark as sent</button>
                       )}
-                      <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)' }} onClick={() => navigator.clipboard.writeText(editBodies[draft.id] || draft.body)}>Copy</button>
+                      <CopyButton text={editBodies[draft.id] || draft.body} />
                       <a href={`/leads/${draft.lead_id}`} className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none' }}>View lead</a>
                     </div>
                   </div>
