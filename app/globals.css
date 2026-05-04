@@ -387,82 +387,107 @@ select.input-sunk option {
 @keyframes slideIn { from { transform: translateX(-100%) } to { transform: translateX(0) } }
 
 @media (max-width: 768px) {
-  /* Hide desktop sidebar, show hamburger */
+  /* ── Layout ── */
   .sidebar-desktop { display: none !important; }
   .hamburger-btn { display: flex !important; }
   .sidebar-mobile-overlay { display: flex; }
-
-  /* Main content full width */
   .stage { flex-direction: column; }
   main { padding-left: 12px !important; padding-right: 12px !important; }
-
-  /* Topbar */
   .topbar { padding-left: 12px !important; padding-right: 12px !important; }
 
-  /* KPI tiles: 2 columns on mobile */
-  .grid-cols-4 { grid-template-columns: repeat(2, 1fr) !important; }
-  .grid-cols-3 { grid-template-columns: repeat(1, 1fr) !important; }
+  /* ── Typography ── */
+  h1 { font-size: 20px !important; }
+  .p-8 { padding: 16px !important; }
 
-  /* Property detail grids: stack */
+  /* ── KPI grid: 2 columns ── */
+  .grid-cols-4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .grid-cols-3 { grid-template-columns: 1fr !important; }
   .grid-cols-2 { grid-template-columns: 1fr !important; }
 
-  /* Lead table header: hide some columns */
-  .leads-table-header .w-28,
-  .leads-table-header .w-24:nth-child(n+4),
-  .leads-table-header .w-20 { display: none; }
+  /* ── Lead detail header ── */
+  /* Address: smaller on mobile */
+  h1.text-3xl, h1.text-2xl, .text-3xl { font-size: 22px !important; line-height: 1.2 !important; }
+  /* Lead header row: stack vertically */
+  .max-w-6xl { max-width: 100% !important; }
+  /* Notes sidebar: hide on mobile */
+  .max-w-6xl > .flex.gap-6 > div:last-child { display: none !important; }
+  /* Tags: wrap tighter */
+  .flex.flex-wrap.gap-2 { gap: 6px !important; }
+  .flex.flex-wrap.gap-2 > span { font-size: 10px !important; padding: 3px 8px !important; }
+  /* Score ring: slightly smaller */
+  .score-ring { transform: scale(0.85); }
 
-  /* Filter bars: wrap */
+  /* ── Lead list ── */
+  /* Hide PERMIT/STAGE/DAMAGE/VALUE columns in BOTH header and data rows */
+  .card-raised.card-hover .w-28,
+  .card-raised.card-hover .w-24,
+  .card-raised.card-hover .w-20 { display: none !important; }
+  .card-raised.card-hover { padding: 10px 12px !important; }
+  .card-raised.card-hover .w-14 { width: 40px; }
+  /* Hide the property subtitle under address in lead rows */
+  .card-raised.card-hover .flex-1 .font-mono { display: none; }
+
+  /* ── Leads table header row: hide matching columns ── */
+  .flex.items-center.gap-4.px-4.py-2.mb-1 > .w-28,
+  .flex.items-center.gap-4.px-4.py-2.mb-1 > .w-24,
+  .flex.items-center.gap-4.px-4.py-2.mb-1 > .w-20,
+  .flex.items-center.gap-4.px-4.py-2.mb-1 > .w-8 { display: none !important; }
+
+  /* ── Top leads (Command Center): hide right-side details ── */
+  .card-raised.card-hover .flex.gap-2.items-center.flex-shrink-0 { display: none !important; }
+  /* Subtitle in top leads: hide on mobile */
+  .card-raised.card-hover .flex-1 .font-mono.text-\[11px\] { display: none !important; }
+
+  /* ── Filter bars ── */
   .card-raised.flex.gap-2 { flex-wrap: wrap; }
   .card-raised .flex-shrink-0 { flex: 1 1 auto; min-width: 120px; }
 
-  /* Page headings */
-  h1 { font-size: 20px !important; }
+  /* ── Permit stack cards: prevent cutoff ── */
+  .card[style*="border-left:"] { overflow: visible !important; }
+  .card-sunk { overflow: hidden; }
 
-  /* Score ring smaller */
-  .score-ring { transform: scale(0.85); }
+  /* ── Subject line picker: stack vertically ── */
+  div[style*="display:flex"][style*="gap:"] > div[style*="cursor:pointer"][style*="padding:"] {
+    min-width: 100% !important;
+  }
 
-  /* Lead detail: stack columns */
-  .max-w-6xl { max-width: 100% !important; }
-
-  /* Notes sidebar: hide on mobile */
-  .max-w-6xl > div > div:last-child { display: none !important; }
-
-  /* Map: taller on mobile */
+  /* ── Map ── */
   .relative[style*="calc(100vh"] { height: calc(100vh - 180px) !important; }
 
-  /* Outreach: tighter padding */
-  .p-8 { padding: 16px !important; }
+  /* ── Outreach tabs ── */
+  .flex.gap-2.mb-6 { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 
-  /* Tabs: scroll horizontally */
-  .flex.gap-2.mb-6 { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
-  .flex.gap-2.mb-6 .tab { white-space: nowrap; flex-shrink: 0; }
-
-  /* Subject picker: stack vertically */
-  .flex[style*="flex-direction"] { flex-direction: column !important; }
-
-  /* Cards: less padding */
+  /* ── Cards ── */
   .card.p-5 { padding: 14px !important; }
   .card.p-6 { padding: 16px !important; }
 
-  /* Lead rows: simplified */
-  .card-raised.card-hover { padding: 10px 12px !important; }
-  .card-raised.card-hover .w-28,
-  .card-raised.card-hover .w-24,
-  .card-raised.card-hover .w-20 { display: none; }
-  .card-raised.card-hover .w-14 { width: 40px; }
-  .card-raised.card-hover .flex-1 .font-mono.text-\[12px\] { display: none; }
-
-  /* Back links */
+  /* ── Back links ── */
   .flex.gap-4.mb-4 { flex-wrap: wrap; gap: 8px; }
 
-  /* Agent steps: smaller */
-  .flex.gap-0[style*="flexWrap"] { transform: scale(0.85); transform-origin: left; }
+  /* ── Admin page ── */
+  /* Client cards: email and dropdowns */
+  .font-mono.text-\[13px\] { font-size: 11px !important; }
+  /* Create form: stack company + max leads */
+  .grid.grid-cols-2.gap-4 { grid-template-columns: 1fr !important; }
+
+  /* ── Print button area ── */
+  .flex.items-center.gap-3 > svg { width: 20px; height: 20px; }
+
+  /* ── Outreach draft generation card ── */
+  /* Agent steps: 2x2 grid, already wraps nicely */
+
+  /* ── General overflow prevention ── */
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+  table { font-size: 12px; }
+  pre { font-size: 11px; overflow-x: auto; }
 }
 
-/* Small phones */
+/* ── Small phones (under 400px) ── */
 @media (max-width: 400px) {
   .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
   .hamburger-btn { width: 32px; height: 32px; }
   h1 { font-size: 18px !important; }
+  .text-3xl { font-size: 18px !important; }
   .card.p-5 { padding: 10px !important; }
+  .card.p-6 { padding: 12px !important; }
 }
