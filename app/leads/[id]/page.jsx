@@ -59,14 +59,12 @@ export default function LeadDetailPage() {
   const scoreColor = lead.score >= 85 ? tc.color : lead.score >= 75 ? tc.color : lead.score >= 50 ? '#fbbf24' : '#6b7280'
   const totalPermits = 1 + (lead.stackedPermits?.length || 0)
 
-  // Enviro helpers
   const yearBuilt = lead.year_built || 0
   const isPre1978 = yearBuilt > 0 && yearBuilt < 1978
   const riskLevel = yearBuilt <= 0 ? 'Unknown' : yearBuilt < 1950 ? 'VERY HIGH' : yearBuilt < 1970 ? 'HIGH' : yearBuilt < 1978 ? 'HIGH' : yearBuilt < 1986 ? 'MODERATE' : 'LOW'
   const riskColor = riskLevel === 'VERY HIGH' || riskLevel === 'HIGH' ? '#FF4444' : riskLevel === 'MODERATE' ? '#FFaa33' : '#666'
   const desc = (lead.permit_description || '').toLowerCase()
 
-  // Hazmat materials prediction based on year built
   function getHazmatMaterials() {
     if (yearBuilt <= 0) return []
     const materials = []
@@ -82,7 +80,6 @@ export default function LeadDetailPage() {
     return materials
   }
 
-  // Scope flags from permit description
   function getScopeFlags() {
     const flags = []
     if (desc.includes('flooring') || desc.includes('floor tile')) flags.push('Remove existing flooring -- asbestos tile trigger')
@@ -101,7 +98,6 @@ export default function LeadDetailPage() {
     return flags
   }
 
-  // Job estimate based on sqft + year
   function getJobEstimate() {
     const sqft = lead.sqft || 0
     if (yearBuilt <= 0) return { survey: '$300-700', abatement: 'TBD' }
@@ -126,14 +122,12 @@ export default function LeadDetailPage() {
     return { survey: '$300-500', abatement: '$1,000-5,000' }
   }
 
-  // Mold risk calculation (months since Palisades fire Jan 7, 2025)
   const FIRE_DATE = new Date('2025-01-07')
   const monthsSinceFire = Math.floor((new Date() - FIRE_DATE) / (1000 * 60 * 60 * 24 * 30))
   const isFireDamaged = lead.fire_zone_match && lead.dins_damage && (lead.dins_damage.includes('Destroyed') || lead.dins_damage.includes('Major'))
   const moldRisk = isFireDamaged && monthsSinceFire > 3 ? (monthsSinceFire > 12 ? 'VERY HIGH' : monthsSinceFire > 6 ? 'HIGH' : 'MODERATE') : null
   const moldColor = moldRisk === 'VERY HIGH' ? '#FF4444' : moldRisk === 'HIGH' ? '#FF6644' : '#FFaa33'
 
-  // Permit history (from owners table, populated by permit history agent)
   const hasPriorAbatement = lead.has_prior_abatement || false
   const hasPriorRoofing = lead.has_prior_roofing || false
   const priorAbatementDate = lead.prior_abatement_date || null
@@ -152,7 +146,6 @@ export default function LeadDetailPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
       <div className="flex items-start justify-between mb-8">
@@ -168,7 +161,7 @@ export default function LeadDetailPage() {
               </svg>
             </button>
             <button
-              <DraftOutreachButton leadId={parseInt(params.id)} address={lead.address} hasDraft={lead.drafts && lead.drafts.length > 0} />
+              onClick={() => { window.open(`/leads/${params.id}/print`, '_blank'); logActivity('lead_printed', lead?.address, parseInt(params.id)) }}
               className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors"
               title="Export / Print lead report"
             >
@@ -178,7 +171,7 @@ export default function LeadDetailPage() {
                 <rect x="6" y="14" width="12" height="8"/>
               </svg>
             </button>
-            <DraftOutreachButton leadId={parseInt(params.id)} address={lead.address} />
+            <DraftOutreachButton leadId={parseInt(params.id)} address={lead.address} hasDraft={lead.drafts && lead.drafts.length > 0} />
           </div>
           <div className="flex gap-2 mt-2 flex-wrap">
             {lead.fire_zone_match && <DamageBadge damage={lead.dins_damage} />}
@@ -214,43 +207,31 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {/* Street View */}
       <div className="mb-6">
         <StreetView latitude={lead.latitude} longitude={lead.longitude} address={lead.address} />
       </div>
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Hazmat Risk Profile (shows ABOVE property details) */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && hazmatMaterials.length > 0 && (
         <div className="card p-5 mb-6" style={{ border: '1px solid ' + riskColor + '30' }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <span style={{ color: riskColor }}>&#9763;</span> Hazmat risk profile
             </h3>
-            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: riskColor + '20', color: riskColor }}>
-              {riskLevel}
-            </span>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: riskColor + '20', color: riskColor }}>{riskLevel}</span>
           </div>
-
           <div className="mb-4">
             <div className="text-xs text-slate-500 mb-1 font-mono uppercase tracking-wider">Year built</div>
             <div className="text-3xl font-bold" style={{ color: isPre1978 ? riskColor : '#fff' }}>{yearBuilt || 'Unknown'}</div>
           </div>
-
           <div className="text-xs text-slate-500 mb-2 font-mono uppercase tracking-wider">Likely hazardous materials</div>
           <div className="flex flex-col gap-2 mb-4">
             {hazmatMaterials.map((m, i) => (
               <div key={i} className="flex items-center gap-2.5 text-sm">
-                <span style={{
-                  width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                  background: m.level === 'high' ? '#FF4444' : m.level === 'med' ? '#FFaa33' : '#666',
-                }} />
+                <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: m.level === 'high' ? '#FF4444' : m.level === 'med' ? '#FFaa33' : '#666' }} />
                 <span style={{ color: m.level === 'high' ? '#ddd' : m.level === 'med' ? '#bbb' : '#888' }}>{m.name}</span>
               </div>
             ))}
           </div>
-
           <div className="grid grid-cols-2 gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Est. test points</div>
@@ -258,26 +239,19 @@ export default function LeadDetailPage() {
             </div>
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Payment source</div>
-              <div className="text-sm font-medium" style={{ color: lead.fire_zone_match ? '#00C896' : '#bbb' }}>
-                {lead.fire_zone_match ? 'Likely insurance (fire claim)' : 'Out-of-pocket'}
-              </div>
+              <div className="text-sm font-medium" style={{ color: lead.fire_zone_match ? '#00C896' : '#bbb' }}>{lead.fire_zone_match ? 'Likely insurance (fire claim)' : 'Out-of-pocket'}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Mold Risk Alert (fire-damaged properties) */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && moldRisk && (
         <div className="card p-5 mb-6" style={{ border: '1px solid ' + moldColor + '30' }}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <span style={{ fontSize: 18 }}>&#x1F7E0;</span> Mold risk assessment
             </h3>
-            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: moldColor + '20', color: moldColor }}>
-              {moldRisk}
-            </span>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md" style={{ background: moldColor + '20', color: moldColor }}>{moldRisk}</span>
           </div>
           <div className="grid grid-cols-3 gap-4 mb-3">
             <div>
@@ -290,9 +264,7 @@ export default function LeadDetailPage() {
             </div>
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Water exposure</div>
-              <div className="text-sm font-medium" style={{ color: moldColor }}>
-                {monthsSinceFire > 12 ? 'Extended (16+ months)' : monthsSinceFire > 6 ? 'Prolonged' : 'Recent'}
-              </div>
+              <div className="text-sm font-medium" style={{ color: moldColor }}>{monthsSinceFire > 12 ? 'Extended (16+ months)' : monthsSinceFire > 6 ? 'Prolonged' : 'Recent'}</div>
             </div>
           </div>
           <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
@@ -301,14 +273,9 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Permit History at Address */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && totalHistoricalPermits > 0 && (
         <div className="card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <span>&#x1F4C4;</span> Permit history at this address
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><span>&#x1F4C4;</span> Permit history at this address</h3>
           <div className="grid grid-cols-3 gap-4 mb-3">
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Total permits (all time)</div>
@@ -316,42 +283,27 @@ export default function LeadDetailPage() {
             </div>
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Prior abatement</div>
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-medium" style={{ color: hasPriorAbatement ? '#FFaa33' : '#00C896' }}>
-                  {hasPriorAbatement ? 'Yes' : 'None on record'}
-                </div>
-              </div>
+              <div className="text-sm font-medium" style={{ color: hasPriorAbatement ? '#FFaa33' : '#00C896' }}>{hasPriorAbatement ? 'Yes' : 'None on record'}</div>
               {priorAbatementDate && <div className="text-xs text-slate-500 mt-1">{priorAbatementDate}</div>}
             </div>
             <div>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-1">Prior roofing permit</div>
-              <div className="text-sm font-medium" style={{ color: hasPriorRoofing ? '#4A9EFF' : '#FF4444' }}>
-                {hasPriorRoofing ? 'Yes (roof replaced)' : 'None (original roof)'}
-              </div>
+              <div className="text-sm font-medium" style={{ color: hasPriorRoofing ? '#4A9EFF' : '#FF4444' }}>{hasPriorRoofing ? 'Yes (roof replaced)' : 'None (original roof)'}</div>
               {priorRoofingDate && <div className="text-xs text-slate-500 mt-1">{priorRoofingDate}</div>}
             </div>
           </div>
           {!hasPriorAbatement && isPre1978 && (
-            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
-              No prior abatement permits found. Pre-1978 home with original materials intact. Full survey recommended.
-            </div>
+            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>No prior abatement permits found. Pre-1978 home with original materials intact. Full survey recommended.</div>
           )}
           {hasPriorAbatement && (
-            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
-              Previous abatement on record. Some areas may already be cleared. Ask homeowner for prior clearance reports before scoping.
-            </div>
+            <div className="text-xs text-slate-400 leading-relaxed" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>Previous abatement on record. Some areas may already be cleared. Ask homeowner for prior clearance reports before scoping.</div>
           )}
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Scope Flags */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && scopeFlags.length > 0 && (
         <div className="card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <span style={{ color: '#FFaa33' }}>&#9888;</span> Scope flags
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><span style={{ color: '#FFaa33' }}>&#9888;</span> Scope flags</h3>
           <div className="flex flex-col gap-2">
             {scopeFlags.map((f, i) => (
               <div key={i} className="flex items-start gap-2.5 text-sm">
@@ -363,9 +315,6 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Job Estimate */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && isPre1978 && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-4">Job estimate</h3>
@@ -387,21 +336,14 @@ export default function LeadDetailPage() {
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-2">Fire-specific additions</div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Soil sampling + remediation</div>
-                  <div className="text-sm font-medium text-white">$5,000-15,000</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Mold assessment + remediation</div>
-                  <div className="text-sm font-medium text-white">$5,000-15,000</div>
-                </div>
+                <div><div className="text-xs text-slate-500 mb-1">Soil sampling + remediation</div><div className="text-sm font-medium text-white">$5,000-15,000</div></div>
+                <div><div className="text-xs text-slate-500 mb-1">Mold assessment + remediation</div><div className="text-sm font-medium text-white">$5,000-15,000</div></div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Row 1: Property Details + Market-specific Intel */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Property details</h3>
@@ -454,7 +396,6 @@ export default function LeadDetailPage() {
         )}
       </div>
 
-      {/* Row 2: Zoning & Buildability + Neighborhood Activity */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Zoning & buildability</h3>
@@ -471,9 +412,7 @@ export default function LeadDetailPage() {
         </div>
 
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">
-            {isEnviro ? 'Cluster opportunity' : 'Neighborhood activity'}
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-4">{isEnviro ? 'Cluster opportunity' : 'Neighborhood activity'}</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-slate-650 mb-1">Permits within 500ft</div>
@@ -500,7 +439,6 @@ export default function LeadDetailPage() {
               </div>
             </div>
           </div>
-
           <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
             <h4 className="text-xs text-slate-650 mb-3 uppercase tracking-wider font-mono">Contractor on permit</h4>
             <div className="grid grid-cols-2 gap-4">
@@ -511,32 +449,13 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* ENVIRO: Compliance Checklist */}
-      {/* ═══════════════════════════════════════════════════ */}
       {isEnviro && isPre1978 && (
         <div className="card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <span>&#128203;</span> Compliance checklist
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><span>&#128203;</span> Compliance checklist</h3>
           <div className="flex flex-col gap-2.5">
-            {[
-              'Asbestos survey by certified CAC/CSST',
-              'Lead paint testing (pre-1978 requirement)',
-              'SCAQMD Rule 1403 notification (if asbestos found, 10 day wait)',
-              'Abatement by C-22 or C-21 licensed contractor',
-              'Air monitoring during abatement',
-              'Clearance testing after abatement',
-              'Waste disposal documentation (manifest)',
-              'Provide clearance report to LADBS for permit',
-            ].map((item, i) => (
+            {['Asbestos survey by certified CAC/CSST','Lead paint testing (pre-1978 requirement)','SCAQMD Rule 1403 notification (if asbestos found, 10 day wait)','Abatement by C-22 or C-21 licensed contractor','Air monitoring during abatement','Clearance testing after abatement','Waste disposal documentation (manifest)','Provide clearance report to LADBS for permit'].map((item, i) => (
               <div key={i} className="flex items-center gap-3 text-sm">
-                <span style={{
-                  width: 16, height: 16, borderRadius: 4,
-                  border: '1.5px solid #555',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, fontSize: 8,
-                }} />
+                <span style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid #555', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 8 }} />
                 <span className="text-slate-400">{item}</span>
               </div>
             ))}
@@ -547,7 +466,6 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* Permit Timeline */}
       <div className="card p-5 mb-6">
         <h3 className="text-sm font-semibold text-white mb-4">Permit timeline</h3>
         <div className="grid grid-cols-4 gap-4">
@@ -558,80 +476,48 @@ export default function LeadDetailPage() {
         </div>
         {(lead.permit_filed_at || lead.permit_issued_at) && (
           <div className="mt-4 flex items-center gap-2">
-            {lead.permit_filed_at && (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-accent/50" />
-                <span className="text-xs text-slate-500">Filed {formatDate(lead.permit_filed_at)}</span>
-              </div>
-            )}
-            {lead.permit_filed_at && lead.permit_issued_at && (
-              <div className="flex-1 h-px bg-accent/20 mx-2" />
-            )}
-            {lead.permit_issued_at && (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-accent" />
-                <span className="text-xs text-slate-500">Issued {formatDate(lead.permit_issued_at)}</span>
-              </div>
-            )}
+            {lead.permit_filed_at && (<div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent/50" /><span className="text-xs text-slate-500">Filed {formatDate(lead.permit_filed_at)}</span></div>)}
+            {lead.permit_filed_at && lead.permit_issued_at && (<div className="flex-1 h-px bg-accent/20 mx-2" />)}
+            {lead.permit_issued_at && (<div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent" /><span className="text-xs text-slate-500">Issued {formatDate(lead.permit_issued_at)}</span></div>)}
             <div className="flex-1 h-px bg-navy-600 mx-2" />
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-slate-650" />
-              <span className="text-xs text-slate-650">{lead.permit_stage}</span>
-            </div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full border-2 border-slate-650" /><span className="text-xs text-slate-650">{lead.permit_stage}</span></div>
           </div>
         )}
       </div>
 
-      {/* Permit Stack */}
       {lead.stackedPermits && lead.stackedPermits.length > 0 && (
         <div className="card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-white mb-4">
-            Permit stack at this address
-            <span className="ml-2 text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-semibold">{totalPermits} total</span>
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-4">Permit stack at this address<span className="ml-2 text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-semibold">{totalPermits} total</span></h3>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-navy-800 border border-accent/30">
               <div className="w-2 h-2 rounded-full bg-accent" />
-              <div className="flex-1">
-                <span className="text-sm text-white font-medium">{lead.permit_type}</span>
-                <span className="text-xs text-slate-650 ml-2">#{lead.permit_number}</span>
-              </div>
+              <div className="flex-1"><span className="text-sm text-white font-medium">{lead.permit_type}</span><span className="text-xs text-slate-650 ml-2">#{lead.permit_number}</span></div>
               <span className="badge badge-stage">{lead.permit_stage}</span>
               <span className="text-xs text-slate-500">{formatDate(lead.permit_issued_at)}</span>
               <span className="text-xs text-accent font-medium">Current</span>
             </div>
-            {lead.stackedPermits.map(p => (
-              <PermitAccordion key={p.id} permit={p} />
-            ))}
+            {lead.stackedPermits.map(p => (<PermitAccordion key={p.id} permit={p} />))}
           </div>
         </div>
       )}
 
-      {/* Inspection History */}
       {lead.inspections && lead.inspections.length > 0 && (
         <div className="card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-white mb-4">
-            Inspection history
-            <span className="ml-2 text-xs bg-[var(--sky-wash)] text-[var(--sky)] px-2 py-0.5 rounded-full font-semibold">{lead.inspections.length} inspections</span>
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-4">Inspection history<span className="ml-2 text-xs bg-[var(--sky-wash)] text-[var(--sky)] px-2 py-0.5 rounded-full font-semibold">{lead.inspections.length} inspections</span></h3>
           <div className="overflow-hidden rounded-lg border border-[var(--line)]">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[var(--card-sunk)]">
-                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Type</th>
-                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Date</th>
-                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Result</th>
-                  <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Inspector</th>
-                </tr>
-              </thead>
+              <thead><tr className="bg-[var(--card-sunk)]">
+                <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Type</th>
+                <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Date</th>
+                <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Result</th>
+                <th className="text-left px-4 py-2.5 text-xs text-slate-500 font-mono font-medium uppercase tracking-wider">Inspector</th>
+              </tr></thead>
               <tbody>
                 {lead.inspections.map((insp, i) => (
                   <tr key={i} className="border-t border-[var(--line)]">
                     <td className="px-4 py-2.5 text-white font-medium">{insp.inspection_type || '-'}</td>
                     <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">{formatDate(insp.inspection_date)}</td>
-                    <td className="px-4 py-2.5">
-                      <InspectionResult result={insp.result} />
-                    </td>
+                    <td className="px-4 py-2.5"><InspectionResult result={insp.result} /></td>
                     <td className="px-4 py-2.5 text-slate-500 text-xs">{insp.inspector || '-'}</td>
                   </tr>
                 ))}
@@ -641,7 +527,6 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* AI Reasoning */}
       {lead.reasoning && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-3">AI score reasoning</h3>
@@ -649,7 +534,6 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* Permit Description */}
       {lead.permit_description && (
         <div className="card p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-3">Permit description</h3>
@@ -657,13 +541,11 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* Contact Unlock */}
       <div className="card p-5 mb-6">
         <h3 className="text-sm font-semibold text-white mb-3">Owner Contact Info</h3>
         <UnlockButton leadId={lead.id} address={lead.address} />
       </div>
 
-      {/* Draft Outreach */}
       {lead.drafts && lead.drafts.length > 0 && (
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-white mb-4">Draft outreach ({lead.drafts.length})</h3>
@@ -681,14 +563,11 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-        </div>{/* end left column */}
-
-        {/* Right column - Notes sidebar */}
+        </div>
         <div style={{ width: 200, flexShrink: 0, position: 'sticky', top: 20 }}>
           <NotesPanel leadId={lead.id} address={lead.address} />
         </div>
-
-      </div>{/* end flex row */}
+      </div>
     </div>
   )
 }
@@ -698,15 +577,7 @@ function InspectionResult({ result }) {
   const r = result.toUpperCase()
   const isPassed = r.includes('PASS') || r.includes('APPROVED') || r.includes('OK')
   const isFailed = r.includes('FAIL') || r.includes('CORRECTION') || r.includes('REJECT')
-  return (
-    <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
-      isPassed ? 'bg-[var(--moss-wash)] text-[var(--moss)]' :
-      isFailed ? 'bg-[var(--ruby-wash)] text-[var(--ruby)]' :
-      'bg-[var(--amber-wash)] text-[var(--amber)]'
-    }`}>
-      {result}
-    </span>
-  )
+  return <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${isPassed ? 'bg-[var(--moss-wash)] text-[var(--moss)]' : isFailed ? 'bg-[var(--ruby-wash)] text-[var(--ruby)]' : 'bg-[var(--amber-wash)] text-[var(--amber)]'}`}>{result}</span>
 }
 
 function PermitAccordion({ permit }) {
@@ -715,47 +586,22 @@ function PermitAccordion({ permit }) {
     <div className="rounded-lg bg-navy-800 border border-navy-600 overflow-hidden transition-all">
       <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-navy-700 transition-colors" onClick={() => setOpen(!open)}>
         <div className="w-2 h-2 rounded-full bg-slate-650" />
-        <div className="flex-1">
-          <span className="text-sm text-slate-300">{permit.permit_type}</span>
-          <span className="text-xs text-slate-650 ml-2">#{permit.permit_number}</span>
-        </div>
+        <div className="flex-1"><span className="text-sm text-slate-300">{permit.permit_type}</span><span className="text-xs text-slate-650 ml-2">#{permit.permit_number}</span></div>
         <span className="badge badge-stage">{permit.permit_stage}</span>
         <span className="text-xs text-slate-500">{formatDate(permit.permit_issued_at)}</span>
         {permit.estimated_value > 0 && <span className="text-xs text-slate-500">${permit.estimated_value.toLocaleString()}</span>}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          className={`text-slate-650 transition-transform ${open ? 'rotate-180' : ''}`}>
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-slate-650 transition-transform ${open ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
       </div>
       {open && (
         <div className="px-4 pb-3 pt-1 border-t border-navy-700">
           <div className="flex items-center gap-3 mt-2">
-            {permit.permit_filed_at && (
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-accent/50" />
-                <span className="text-xs text-slate-500">Filed {formatDate(permit.permit_filed_at)}</span>
-              </div>
-            )}
-            {permit.permit_filed_at && permit.permit_issued_at && (
-              <div className="flex-1 h-px bg-accent/20 mx-1" />
-            )}
-            {permit.permit_issued_at && (
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
-                <span className="text-xs text-slate-500">Issued {formatDate(permit.permit_issued_at)}</span>
-              </div>
-            )}
+            {permit.permit_filed_at && (<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-accent/50" /><span className="text-xs text-slate-500">Filed {formatDate(permit.permit_filed_at)}</span></div>)}
+            {permit.permit_filed_at && permit.permit_issued_at && (<div className="flex-1 h-px bg-accent/20 mx-1" />)}
+            {permit.permit_issued_at && (<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-accent" /><span className="text-xs text-slate-500">Issued {formatDate(permit.permit_issued_at)}</span></div>)}
             <div className="flex-1 h-px bg-navy-600 mx-1" />
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full border-2 border-slate-650" />
-              <span className="text-xs text-slate-650">{permit.permit_stage}</span>
-            </div>
+            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full border-2 border-slate-650" /><span className="text-xs text-slate-650">{permit.permit_stage}</span></div>
           </div>
-          {permit.estimated_value > 0 && (
-            <div className="mt-2 text-xs text-slate-500">
-              Permit value: <span className="text-white font-medium">${permit.estimated_value.toLocaleString()}</span>
-            </div>
-          )}
+          {permit.estimated_value > 0 && (<div className="mt-2 text-xs text-slate-500">Permit value: <span className="text-white font-medium">${permit.estimated_value.toLocaleString()}</span></div>)}
         </div>
       )}
     </div>
@@ -763,12 +609,7 @@ function PermitAccordion({ permit }) {
 }
 
 function Detail({ label, value, highlight, highlightColor }) {
-  return (
-    <div>
-      <div className="text-xs text-slate-650 mb-1">{label}</div>
-      <div className="text-sm font-medium" style={{ color: highlight ? highlightColor : '#fff' }}>{value}</div>
-    </div>
-  )
+  return (<div><div className="text-xs text-slate-650 mb-1">{label}</div><div className="text-sm font-medium" style={{ color: highlight ? highlightColor : '#fff' }}>{value}</div></div>)
 }
 
 function formatDate(d) {
@@ -785,9 +626,7 @@ function DraftCard({ draft, onUpdate }) {
         <div className="text-sm font-medium text-white">{draft.subject}</div>
         <div className="flex items-center gap-2">
           <StatusBadge status={draft.status} />
-          <button onClick={() => setExpanded(!expanded)} className="text-xs text-slate-500 hover:text-accent">
-            {expanded ? 'Collapse' : 'Expand'}
-          </button>
+          <button onClick={() => setExpanded(!expanded)} className="text-xs text-slate-500 hover:text-accent">{expanded ? 'Collapse' : 'Expand'}</button>
         </div>
       </div>
       {expanded && (
