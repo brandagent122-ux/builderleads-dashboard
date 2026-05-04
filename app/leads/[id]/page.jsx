@@ -146,7 +146,10 @@ export default function LeadDetailPage() {
 
   return (
     <div className="p-8 max-w-6xl">
-      <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors mb-4 inline-block">&larr; Back to all leads</a>
+      <div className="flex gap-4 mb-4">
+        <a href="/leads" className="text-sm text-slate-500 hover:text-accent transition-colors">&larr; All leads</a>
+        <a href="/outreach" className="text-sm text-slate-500 hover:text-accent transition-colors">&larr; Outreach queue</a>
+      </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {/* Main content */}
