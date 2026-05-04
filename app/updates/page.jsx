@@ -4,57 +4,50 @@ const UPDATES = [
   {
     version: '1.7.0',
     date: 'May 3, 2026',
-    title: 'Learning Loops + Outreach Overhaul',
+    title: 'Outreach System Improvements',
     items: [
-      'Draft outreach learning system: edit tracking, subject line A/B testing, angle performance scoring',
-      'Outreach queue: approve, edit, reject drafts with local state (no disappearing)',
-      'Subject line picker: choose from 3 AI-generated options per draft',
-      'Copy button with "Copied!" feedback animation',
-      'Re-draft prevention: won\'t burn API credits if draft already exists for a lead',
-      'Server-side drafts API for reliable data reads',
-      'Session cache so drafts persist across page navigation',
-      '"View in Outreach" button replaces "Draft Outreach" when draft exists',
-      'Back to Outreach link on lead detail page',
+      'Draft emails now stay visible after approving',
+      'Pick from 3 subject line options for each outreach email',
+      'Edit drafts before approving',
+      '"Copied!" feedback when you copy an email to clipboard',
+      'System learns your writing style the more you edit drafts',
+      'Won\'t create duplicate drafts for the same lead',
     ],
   },
   {
     version: '1.6.0',
     date: 'May 3, 2026',
-    title: 'Market-Type Awareness + Verification',
+    title: 'Smarter Lead Display',
     items: [
-      'Dynamic KPIs: fire markets show Destroyed/Rebuild Value, general markets show New Construction/Permit Value',
-      'Conditional lead list: DAMAGE column for fire markets, PROJECT column for general markets',
-      'Project type tags: NEW BUILD, REMODEL, ADDITION, DEMO, POOL (color coded)',
-      'Contact verification badges: VERIFIED, MOBILE, DELIVERABLE on phones and emails',
-      'Strict verified-only contacts: unverified phones and invalid emails hidden from display',
-      'Contact re-fetch button for previously unlocked leads',
-      'Map page now shows trade-specific scores (enviro users see enviro scores)',
-      'Market filtering works for client users across all pages',
-      'DNC FILTER VERIFIED badge on every contact card',
+      'Dashboard adapts to your market: fire zone leads show damage info, general leads show project type',
+      'Project tags on leads list: New Build, Remodel, Addition, Demo, Pool',
+      'Contact cards now show verified and mobile badges on phone numbers',
+      'Invalid and unverified contact info hidden automatically',
+      'One-click re-fetch for previously unlocked contacts',
+      'Map view now shows scores specific to your trade',
     ],
   },
   {
     version: '1.5.0',
     date: 'May 3, 2026',
-    title: 'Environmental Services Vertical',
+    title: 'Environmental Services Trade',
     items: [
-      'Trade-based dashboard: one database field controls entire UI per user',
-      'Environmental lead detail: hazmat risk profile, mold assessment, scope flags, job estimates, compliance checklist',
-      'Enviro scorer agent: pre-1986 homes scored by year built, fire damage, permit scope',
-      'Permit history agent: checks full LADBS history for prior abatement and roofing',
-      'Contact verification waterfall: Tracerfy > REISkip > ZeroBounce > Trestle',
-      '8 trade configs: GC, Enviro, Roofing, Solar, Plumbing, HVAC, Electrical, Public Adjuster',
+      'Full environmental services dashboard for hazmat contractors',
+      'Hazmat risk profiles based on property age and construction era',
+      'Mold risk assessment for fire-damaged properties',
+      'Job estimates based on square footage and year built',
+      'Compliance checklist for asbestos and lead paint regulations',
+      'Contact verification across multiple data sources',
     ],
   },
   {
     version: '1.4.0',
     date: 'May 3, 2026',
-    title: 'Pipeline + Model Updates',
+    title: 'Performance + Navigation',
     items: [
-      'Claude model updated to claude-sonnet-4-6 (scorer + enviro scorer)',
-      'Drafter running on claude-opus-4-6',
-      'Sidebar navigation upgraded to Next.js Link (faster page transitions)',
-      'RLS policy added to drafts table for authenticated reads',
+      'Faster page transitions throughout the app',
+      'Scoring engine updated to latest version',
+      'Improved data reliability on all pages',
     ],
   },
   {
@@ -62,12 +55,10 @@ const UPDATES = [
     date: 'Apr 29, 2026',
     title: 'Draft Outreach System',
     items: [
-      '4-agent pipeline animation: Analyze > Angle > Write > Verify',
-      'Magical writing animation with sparkle particle effects',
-      '3 subject line options generated per draft',
-      'Approve, copy, and send workflow',
-      'Draft memory and angle performance tracking tables',
-      'Voice profiles table for contractor style learning',
+      'Generate personalized outreach emails for any lead',
+      'Live writing animation as your email drafts',
+      'Approve, edit, copy, and send workflow',
+      'System tracks which email styles get the best response',
     ],
   },
   {
@@ -75,28 +66,24 @@ const UPDATES = [
     date: 'Apr 27, 2026',
     title: 'Multi-Market Expansion',
     items: [
-      '13 active LA markets: Palisades, West LA, San Pedro, Wilmington, Harbor City, Encino, Sherman Oaks, Studio City, Woodland Hills, Venice, Westchester, South LA, Hollywood',
-      'Markets table drives all configuration (no code changes to add markets)',
-      'Mini SoCal SVG market map in sidebar with pulsing animations',
-      'General construction scoring profile: LLM at 50% weight',
-      'Market-aware data queries across all pages',
-      'Map address search with auto-zoom and fly animations',
-      'Mapbox dark tiles with satellite toggle',
-      'Google Street View integration',
+      '13 active LA markets from Palisades to Hollywood',
+      'Add new markets with zero code changes',
+      'Interactive market map in the sidebar',
+      'Satellite and dark map toggle',
+      'Street View photos on every lead',
+      'Address search with auto-zoom on map',
     ],
   },
   {
     version: '1.1.0',
     date: 'Apr 24, 2026',
-    title: 'Enrichment Pipeline + Security',
+    title: 'Data Enrichment + Security',
     items: [
-      '12 pipeline agents running via daily cron',
-      'LotSize, Zoning, Inspections, Neighbors, Flood, Dedup, DINS agents',
-      'Supabase Auth for multi-user accounts',
-      'Admin dashboard for managing clients and tiers',
-      'RLS security on all tables',
-      'DNC compliance with bulletproof filtering',
-      'Tracerfy skip trace integration (pass-through, no data stored)',
+      'Property details: lot size, zoning, flood zone, inspection history',
+      'Neighbor activity tracking within 500ft',
+      'Multi-user accounts with role-based access',
+      'Admin dashboard for managing clients',
+      'Do-Not-Call compliance filtering on all contacts',
     ],
   },
   {
@@ -105,14 +92,12 @@ const UPDATES = [
     title: 'Initial Launch',
     items: [
       'BuilderLeads platform launched',
-      'Neumorphic dark theme dashboard',
-      'Scout, Filter, Enricher, Scorer, Drafter agents',
-      'LADBS permit data pipeline',
-      'Palisades fire zone filtering with 250ft buffer',
-      'AI scoring 0-100 with Claude',
-      'Command Center, All Leads, Map View, Outreach Queue',
-      'CSV export with checkbox selection',
-      'Score rings and lead cards',
+      'Daily permit data refreshed automatically',
+      'Leads scored 0-100 based on project value and intent',
+      'Command Center with top leads and key stats',
+      'Lead detail pages with full property intel',
+      'Map view with score filters',
+      'CSV export for selected leads',
     ],
   },
 ]
@@ -122,17 +107,15 @@ export default function UpdatesPage() {
     <div className="p-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white tracking-tight">Platform Updates</h1>
-        <p className="text-sm text-slate-500 mt-1">Version history and changelog</p>
+        <p className="text-sm text-slate-500 mt-1">What's new in BuilderLeads</p>
       </div>
 
       <div className="relative">
-        {/* Timeline line */}
         <div style={{ position: 'absolute', left: 15, top: 8, bottom: 8, width: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 1 }} />
 
         <div className="flex flex-col gap-6">
           {UPDATES.map((update, i) => (
             <div key={i} className="flex gap-5">
-              {/* Timeline dot */}
               <div style={{ position: 'relative', flexShrink: 0, width: 32, display: 'flex', justifyContent: 'center', paddingTop: 6 }}>
                 <div style={{
                   width: 12, height: 12, borderRadius: '50%', position: 'relative', zIndex: 1,
@@ -142,7 +125,6 @@ export default function UpdatesPage() {
                 }} />
               </div>
 
-              {/* Content */}
               <div className="card p-5 flex-1" style={{ borderLeft: i === 0 ? '2px solid var(--ember, #FF7A3D)' : undefined }}>
                 <div className="flex items-center gap-3 mb-2">
                   <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded" style={{
@@ -159,7 +141,7 @@ export default function UpdatesPage() {
                 <div className="flex flex-col gap-1.5">
                   {update.items.map((item, j) => (
                     <div key={j} className="flex items-start gap-2.5 text-[13px] text-slate-400">
-                      <span style={{ color: i === 0 ? '#FF7A3D' : '#555', marginTop: 6, flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: i === 0 ? '#FF7A3D' : '#555' }} />
+                      <span style={{ marginTop: 7, flexShrink: 0, width: 4, height: 4, borderRadius: '50%', background: i === 0 ? '#FF7A3D' : '#555' }} />
                       {item}
                     </div>
                   ))}
