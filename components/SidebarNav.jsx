@@ -2,6 +2,7 @@
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase, getProfile } from '@/lib/supabase'
+import Link from 'next/link'
 
 const icons = {
   grid: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
@@ -17,14 +18,14 @@ const icons = {
 function NavItem({ href, icon, label, pathname, tradeColor }) {
   const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
   return (
-    <a
+    <Link
       href={href}
       className={`nav-item ${isActive ? 'active' : ''}`}
       style={isActive ? { borderLeftColor: tradeColor } : undefined}
     >
       {icons[icon]}
       <span>{label}</span>
-    </a>
+    </Link>
   )
 }
 

@@ -148,15 +148,19 @@ export default function OutreachPage() {
   async function loadDrafts() {
     try {
       const session = await getSession()
+      const token = session?.access_token || ''
       const resp = await fetch('/api/drafts', {
-        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
       })
       if (resp.ok) {
         const data = await resp.json()
         setDrafts(data.drafts || [])
         await loadDraftSubjects(data.drafts || [])
       }
-    } catch {}
+    } catch (err) {
+      console.log('[Outreach] loadDrafts error:', err.message)
+    }
   }
 
   async function loadDraftSubjects(draftList) {
@@ -181,36 +185,56 @@ export default function OutreachPage() {
       setUserCtx(ctx)
 
       // Fetch drafts via server-side API (bypasses RLS)
-      try {
-        const session = await getSession()
-        const resp = await fetch('/api/drafts', {
-          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
-        })
-        if (resp.ok) {
-          const result = await resp.json()
-          const data = result.drafts || []
-          setDrafts(data)
-          await loadDraftSubjects(data)
+      const session = await getSession()
+      const token = session?.access_token || ''
 
-          // Check for pending draft request AFTER loading existing drafts
-          const raw = localStorage.getItem('bl_draft_request')
-          if (raw) {
-            localStorage.removeItem('bl_draft_request')
-            try {
-              const req = JSON.parse(raw)
-              if (Date.now() - req.ts < 30000) {
-                // Check if draft already exists for this lead (any status - prevent re-draft)
-                const existingDraft = data.find(d => d.lead_id === req.lead_id)
-                if (!existingDraft) {
-                  runDraftGeneration(req.lead_id, req.address)
-                } else {
-                  setExpanded(existingDraft.id)
-                }
-              }
-            } catch {}
+      let data = []
+      let fetchOk = false
+
+      // Try up to 2 times (session might not be ready on first try after navigation)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          // Re-get session on retry in case it wasn't ready
+          const s = attempt === 0 ? session : await getSession()
+          const t = s?.access_token || token
+          const resp = await fetch('/api/drafts', {
+            headers: t ? { 'Authorization': `Bearer ${t}` } : {},
+            credentials: 'include',
+          })
+          if (resp.ok) {
+            const result = await resp.json()
+            data = result.drafts || []
+            fetchOk = true
+            break
+          } else {
+            console.log(`[Outreach] API returned ${resp.status} on attempt ${attempt + 1}`)
+            if (attempt === 0) await new Promise(r => setTimeout(r, 500))
           }
+        } catch (err) {
+          console.log(`[Outreach] Fetch error attempt ${attempt + 1}:`, err.message)
+          if (attempt === 0) await new Promise(r => setTimeout(r, 500))
         }
-      } catch {}
+      }
+
+      setDrafts(data)
+      if (data.length > 0) await loadDraftSubjects(data)
+
+      // Check for pending draft request AFTER loading existing drafts
+      const raw = localStorage.getItem('bl_draft_request')
+      if (raw) {
+        localStorage.removeItem('bl_draft_request')
+        try {
+          const req = JSON.parse(raw)
+          if (Date.now() - req.ts < 30000) {
+            const existingDraft = data.find(d => d.lead_id === req.lead_id)
+            if (!existingDraft) {
+              runDraftGeneration(req.lead_id, req.address)
+            } else {
+              setExpanded(existingDraft.id)
+            }
+          }
+        } catch {}
+      }
 
       setLoading(false)
     }
