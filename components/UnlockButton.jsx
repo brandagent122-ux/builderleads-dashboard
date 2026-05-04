@@ -145,61 +145,65 @@ export default function UnlockButton({ leadId, address }) {
               )}
             </div>
 
-            {/* Phones */}
-            {person.phones && person.phones.length > 0 && (
-              <div className="mb-3">
-                <div className="font-mono text-[10px] text-ink-3 mb-1.5">PHONES</div>
-                {person.phones.map((p, j) => (
-                  <div key={j} className="flex items-center gap-3 mb-1.5 flex-wrap">
-                    <a href={`tel:${p.number}`} className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
-                      {formatPhone(p.number)}
-                    </a>
-                    {p.verified && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>VERIFIED</span>
-                    )}
-                    {p.is_mobile && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.12)' }}>MOBILE</span>
-                    )}
-                    {!p.is_mobile && p.line_type && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(255,255,255,0.04)', color: '#555', border: '1px solid rgba(255,255,255,0.06)' }}>{(p.line_type || '').toUpperCase()}</span>
-                    )}
-                    {p.carrier && (
-                      <span className="font-mono text-[8px] text-ink-3">{p.carrier}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Phones - only show verified (fallback: show all if none verified) */}
+            {(() => {
+              const allPhones = person.phones || []
+              const verifiedPhones = allPhones.filter(p => p.verified)
+              const displayPhones = verifiedPhones.length > 0 ? verifiedPhones : allPhones
+              const isVerified = verifiedPhones.length > 0
+              return displayPhones.length > 0 && (
+                <div className="mb-3">
+                  <div className="font-mono text-[10px] text-ink-3 mb-1.5">{isVerified ? 'VERIFIED PHONES' : 'PHONES'}</div>
+                  {displayPhones.map((p, j) => (
+                    <div key={j} className="flex items-center gap-3 mb-1.5 flex-wrap">
+                      <a href={`tel:${p.number}`} className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
+                        {formatPhone(p.number)}
+                      </a>
+                      {p.verified && (
+                        <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>VERIFIED</span>
+                      )}
+                      {p.is_mobile && (
+                        <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.12)' }}>MOBILE</span>
+                      )}
+                      {!p.is_mobile && p.line_type && (
+                        <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: '#555', border: '1px solid rgba(255,255,255,0.06)' }}>{(p.line_type || '').toUpperCase()}</span>
+                      )}
+                      {p.carrier && (
+                        <span className="font-mono text-[8px] text-ink-3">{p.carrier}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
-            {/* Emails */}
-            {person.emails && person.emails.length > 0 && (
-              <div className="mb-3">
-                <div className="font-mono text-[10px] text-ink-3 mb-1.5">EMAILS</div>
-                {person.emails.map((e, j) => (
-                  <div key={j} className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <a href={`mailto:${e.email}`}
-                      className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
-                      {e.email}
-                    </a>
-                    {e.deliverable && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>DELIVERABLE</span>
-                    )}
-                    {e.risky && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.12)' }}>RISKY</span>
-                    )}
-                    {e.invalid && (
-                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.12)' }}>INVALID</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Emails - only show deliverable (fallback: show all if none verified) */}
+            {(() => {
+              const allEmails = person.emails || []
+              const goodEmails = allEmails.filter(e => e.deliverable)
+              const displayEmails = goodEmails.length > 0 ? goodEmails : allEmails.filter(e => !e.invalid)
+              const isVerified = goodEmails.length > 0
+              return displayEmails.length > 0 && (
+                <div className="mb-3">
+                  <div className="font-mono text-[10px] text-ink-3 mb-1.5">{isVerified ? 'VERIFIED EMAILS' : 'EMAILS'}</div>
+                  {displayEmails.map((e, j) => (
+                    <div key={j} className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <a href={`mailto:${e.email}`}
+                        className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
+                        {e.email}
+                      </a>
+                      {e.deliverable && (
+                        <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>DELIVERABLE</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             {/* Mailing address */}
             {person.mailing_address && person.mailing_address.street && (
