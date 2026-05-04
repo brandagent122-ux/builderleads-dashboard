@@ -168,7 +168,7 @@ export default function LeadDetailPage() {
               </svg>
             </button>
             <button
-              onClick={() => { window.open(`/leads/${params.id}/print`, '_blank'); logActivity('lead_printed', lead?.address, parseInt(params.id)) }}
+              <DraftOutreachButton leadId={parseInt(params.id)} address={lead.address} hasDraft={lead.drafts && lead.drafts.length > 0} />
               className="p-1.5 rounded-lg hover:bg-navy-700 transition-colors"
               title="Export / Print lead report"
             >
