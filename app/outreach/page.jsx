@@ -178,23 +178,34 @@ export default function OutreachPage() {
     } catch {}
   }
 
+  // Cache helpers
+  function cacheDrafts(draftsArr) {
+    try { sessionStorage.setItem('bl_drafts_cache', JSON.stringify(draftsArr)) } catch {}
+  }
+  function getCachedDrafts() {
+    try { const c = sessionStorage.getItem('bl_drafts_cache'); return c ? JSON.parse(c) : [] } catch { return [] }
+  }
+
   useEffect(() => {
     async function load() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
       setUserCtx(ctx)
 
-      // Fetch drafts via server-side API (bypasses RLS)
+      // Show cached drafts immediately (no flash of empty)
+      const cached = getCachedDrafts()
+      if (cached.length > 0) {
+        setDrafts(cached)
+        setLoading(false)
+      }
+
+      // Fetch fresh from API
+      let freshData = null
       const session = await getSession()
       const token = session?.access_token || ''
 
-      let data = []
-      let fetchOk = false
-
-      // Try up to 2 times (session might not be ready on first try after navigation)
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          // Re-get session on retry in case it wasn't ready
           const s = attempt === 0 ? session : await getSession()
           const t = s?.access_token || token
           const resp = await fetch('/api/drafts', {
@@ -203,30 +214,34 @@ export default function OutreachPage() {
           })
           if (resp.ok) {
             const result = await resp.json()
-            data = result.drafts || []
-            fetchOk = true
+            freshData = result.drafts || []
             break
           } else {
-            console.log(`[Outreach] API returned ${resp.status} on attempt ${attempt + 1}`)
-            if (attempt === 0) await new Promise(r => setTimeout(r, 500))
+            console.log(`[Outreach] API ${resp.status} attempt ${attempt + 1}`)
           }
         } catch (err) {
           console.log(`[Outreach] Fetch error attempt ${attempt + 1}:`, err.message)
-          if (attempt === 0) await new Promise(r => setTimeout(r, 500))
         }
+        if (attempt < 2) await new Promise(r => setTimeout(r, 800))
       }
 
-      setDrafts(data)
-      if (data.length > 0) await loadDraftSubjects(data)
+      // If API returned data, use it and update cache
+      if (freshData !== null) {
+        setDrafts(freshData)
+        cacheDrafts(freshData)
+        if (freshData.length > 0) await loadDraftSubjects(freshData)
+      }
+      // If API failed but we have cache, keep showing cache (already set above)
 
-      // Check for pending draft request AFTER loading existing drafts
+      // Check for pending draft request
       const raw = localStorage.getItem('bl_draft_request')
       if (raw) {
         localStorage.removeItem('bl_draft_request')
         try {
           const req = JSON.parse(raw)
           if (Date.now() - req.ts < 30000) {
-            const existingDraft = data.find(d => d.lead_id === req.lead_id)
+            const allDrafts = freshData || cached
+            const existingDraft = allDrafts.find(d => d.lead_id === req.lead_id)
             if (!existingDraft) {
               runDraftGeneration(req.lead_id, req.address)
             } else {
@@ -305,22 +320,21 @@ export default function OutreachPage() {
       const resp = await fetch('/api/draft/learn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        credentials: 'include',
         body: JSON.stringify({ draft_id: draftId, action, ...extras }),
       })
       const data = await resp.json()
       if (data.success) {
-        // Update local state instead of re-fetching from DB
         const newStatus = action === 'approve' ? 'approved' : action === 'edit_approve' ? 'approved' : action === 'reject' ? 'rejected' : null
         if (newStatus) {
-          setDrafts(prev => prev.map(d => {
-            if (d.id !== draftId) return d
-            return {
-              ...d,
-              status: newStatus,
-              body: extras.edited_body || d.body,
-              subject: extras.selected_subject || d.subject,
-            }
-          }))
+          setDrafts(prev => {
+            const updated = prev.map(d => {
+              if (d.id !== draftId) return d
+              return { ...d, status: newStatus, body: extras.edited_body || d.body, subject: extras.selected_subject || d.subject }
+            })
+            cacheDrafts(updated)
+            return updated
+          })
         }
       }
       return data
@@ -334,11 +348,11 @@ export default function OutreachPage() {
   async function handleApproveNew() {
     if (!genDraft) return
     await callLearn(genDraft.id, 'approve', { selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
-    // Add to drafts list locally
-    setDrafts(prev => [{
+    const newDraft = {
       id: genDraft.id, lead_id: genDraft.lead_id, subject: genSelectedSubject || genDraft.subjects?.[0] || 'Outreach',
       body: genDraft.body, status: 'approved', address: genAddress, score: 0, created_at: new Date().toISOString(),
-    }, ...prev])
+    }
+    setDrafts(prev => { const updated = [newDraft, ...prev.filter(d => d.id !== genDraft.id)]; cacheDrafts(updated); return updated })
     setGenerating(false)
   }
 
@@ -346,10 +360,11 @@ export default function OutreachPage() {
     if (!genDraft) return
     const editedBody = editBodies[`gen_${genDraft.id}`] || genDraft.body
     await callLearn(genDraft.id, 'edit_approve', { edited_body: editedBody, selected_subject: genSelectedSubject, all_subjects: genDraft.subjects })
-    setDrafts(prev => [{
+    const newDraft = {
       id: genDraft.id, lead_id: genDraft.lead_id, subject: genSelectedSubject || genDraft.subjects?.[0] || 'Outreach',
       body: editedBody, status: 'approved', address: genAddress, score: 0, created_at: new Date().toISOString(),
-    }, ...prev])
+    }
+    setDrafts(prev => { const updated = [newDraft, ...prev.filter(d => d.id !== genDraft.id)]; cacheDrafts(updated); return updated })
     setGenerating(false)
   }
 
@@ -376,10 +391,10 @@ export default function OutreachPage() {
       await fetch('/api/draft/learn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        credentials: 'include',
         body: JSON.stringify({ draft_id: draftId, action: 'mark_sent' }),
       })
-      // Update locally to 'sent'
-      setDrafts(prev => prev.map(d => d.id === draftId ? { ...d, status: 'sent' } : d))
+      setDrafts(prev => { const updated = prev.map(d => d.id === draftId ? { ...d, status: 'sent' } : d); cacheDrafts(updated); return updated })
     } catch {} finally {
       setLearnLoading(prev => ({ ...prev, [draftId]: false }))
     }
