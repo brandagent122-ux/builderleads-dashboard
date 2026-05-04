@@ -185,8 +185,8 @@ export default function OutreachPage() {
         try {
           const req = JSON.parse(raw)
           if (Date.now() - req.ts < 30000) {
-            // Check if draft already exists for this lead (prevent re-draft)
-            const existingDraft = data.find(d => d.lead_id === req.lead_id && d.status === 'pending_review')
+            // Check if draft already exists for this lead (any status - prevent re-draft)
+            const existingDraft = data.find(d => d.lead_id === req.lead_id)
             if (!existingDraft) {
               runDraftGeneration(req.lead_id, req.address)
             } else {
@@ -201,12 +201,7 @@ export default function OutreachPage() {
     load()
   }, [])
 
-  useEffect(() => {
-    if (userCtx) {
-      setLoading(true)
-      loadDrafts(userCtx, filter).then(() => setLoading(false))
-    }
-  }, [filter])
+  // Tab filtering is handled locally via filteredDrafts - no DB re-fetch needed
 
   async function runDraftGeneration(leadId, address) {
     setGenerating(true)
