@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getDrafts, getUserContext, getSession } from '@/lib/supabase'
+import { getUserContext, getSession } from '@/lib/supabase'
 
 function TypingText({ text, speed = 12, onComplete, box }) {
   const [displayed, setDisplayed] = useState('')
@@ -145,12 +145,18 @@ export default function OutreachPage() {
   const [genSelectedSubject, setGenSelectedSubject] = useState(null)
   const emailBoxRef = useRef(null)
 
-  async function loadDrafts(ctx, statusFilter) {
-    const c = ctx || userCtx
-    if (!c) return
-    const data = await getDrafts(statusFilter === 'all' ? null : statusFilter, c.assignedLeadIds, null)
-    setDrafts(data)
-    await loadDraftSubjects(data)
+  async function loadDrafts() {
+    try {
+      const session = await getSession()
+      const resp = await fetch('/api/drafts', {
+        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        setDrafts(data.drafts || [])
+        await loadDraftSubjects(data.drafts || [])
+      }
+    } catch {}
   }
 
   async function loadDraftSubjects(draftList) {
@@ -173,29 +179,40 @@ export default function OutreachPage() {
       const ctx = await getUserContext()
       if (!ctx) { setLoading(false); return }
       setUserCtx(ctx)
-      const data = await getDrafts(null, ctx.assignedLeadIds, null)
-      setDrafts(data)
-      await loadDraftSubjects(data)
-      setLoading(false)
 
-      // Check for pending draft request AFTER loading existing drafts
-      const raw = localStorage.getItem('bl_draft_request')
-      if (raw) {
-        localStorage.removeItem('bl_draft_request')
-        try {
-          const req = JSON.parse(raw)
-          if (Date.now() - req.ts < 30000) {
-            // Check if draft already exists for this lead (any status - prevent re-draft)
-            const existingDraft = data.find(d => d.lead_id === req.lead_id)
-            if (!existingDraft) {
-              runDraftGeneration(req.lead_id, req.address)
-            } else {
-              // Just expand the existing draft instead of making a new one
-              setExpanded(existingDraft.id)
-            }
+      // Fetch drafts via server-side API (bypasses RLS)
+      try {
+        const session = await getSession()
+        const resp = await fetch('/api/drafts', {
+          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` },
+        })
+        if (resp.ok) {
+          const result = await resp.json()
+          const data = result.drafts || []
+          setDrafts(data)
+          await loadDraftSubjects(data)
+
+          // Check for pending draft request AFTER loading existing drafts
+          const raw = localStorage.getItem('bl_draft_request')
+          if (raw) {
+            localStorage.removeItem('bl_draft_request')
+            try {
+              const req = JSON.parse(raw)
+              if (Date.now() - req.ts < 30000) {
+                // Check if draft already exists for this lead (any status - prevent re-draft)
+                const existingDraft = data.find(d => d.lead_id === req.lead_id)
+                if (!existingDraft) {
+                  runDraftGeneration(req.lead_id, req.address)
+                } else {
+                  setExpanded(existingDraft.id)
+                }
+              }
+            } catch {}
           }
-        } catch {}
-      }
+        }
+      } catch {}
+
+      setLoading(false)
     }
     setLoading(true)
     load()
