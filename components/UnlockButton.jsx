@@ -27,22 +27,26 @@ export default function UnlockButton({ leadId, address }) {
     init()
   }, [leadId])
 
-  async function handleUnlock() {
+  async function handleUnlock(isRefetch) {
     if (!userId || status === 'loading') return
     setStatus('loading')
     setError('')
 
     const parts = address.split(',').map(s => s.trim())
     const streetAddr = parts[0] || address
-    const city = parts[1] || 'Pacific Palisades'
+    const city = parts[1] || 'Los Angeles'
     const stateZip = parts[2] || 'CA'
     const stateParts = stateZip.split(' ')
     const state = stateParts[0] || 'CA'
     const zip = stateParts[1] || ''
 
+    const session = await getSession()
     const resp = await fetch('/api/unlock', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
       body: JSON.stringify({
         lead_id: leadId,
         address: streetAddr,
@@ -50,6 +54,7 @@ export default function UnlockButton({ leadId, address }) {
         state,
         zip: zip || undefined,
         user_id: userId,
+        refetch: isRefetch || undefined,
       }),
     })
 
@@ -67,15 +72,31 @@ export default function UnlockButton({ leadId, address }) {
     setAlreadyUnlocked(true)
   }
 
-  if (alreadyUnlocked && !persons) {
+  if (alreadyUnlocked && !persons && status !== 'loading') {
     return (
-      <div style={{
-        padding: 16, borderRadius: 14,
-        background: 'rgba(34,197,94,0.08)',
-        border: '1px solid rgba(34,197,94,0.2)',
-      }}>
-        <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">CONTACT UNLOCKED</div>
-        <div className="text-[13px] text-ink-2">Contact info was previously unlocked for this lead. Data is not stored permanently.</div>
+      <div>
+        <div style={{
+          padding: 16, borderRadius: 14, marginBottom: 12,
+          background: 'rgba(34,197,94,0.08)',
+          border: '1px solid rgba(34,197,94,0.2)',
+        }}>
+          <div className="font-mono text-[10px] text-green-400 tracking-wider mb-1">PREVIOUSLY UNLOCKED</div>
+          <div className="text-[13px] text-ink-2">Contact data is not stored. Re-fetch to view again.</div>
+        </div>
+        <button
+          onClick={() => handleUnlock(true)}
+          disabled={status === 'loading'}
+          className="btn-ghost w-full"
+          style={{ padding: 12, borderRadius: 14, fontSize: 13, fontWeight: 600 }}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Re-fetch Contact Info (no extra charge)
+          </span>
+        </button>
+        {error && <div className="text-red-400 text-[12px] text-center mt-2">{error}</div>}
       </div>
     )
   }
@@ -129,20 +150,24 @@ export default function UnlockButton({ leadId, address }) {
               <div className="mb-3">
                 <div className="font-mono text-[10px] text-ink-3 mb-1.5">PHONES</div>
                 {person.phones.map((p, j) => (
-                  <div key={j} className="flex items-center gap-3 mb-1">
+                  <div key={j} className="flex items-center gap-3 mb-1.5 flex-wrap">
                     <a href={`tel:${p.number}`} className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
                       {formatPhone(p.number)}
                     </a>
-                    {p.type && (
-                      <span className="font-mono text-[9px] tracking-wider text-ink-3 px-1.5 py-0.5 rounded"
-                        style={{ background: 'var(--card-sunk)' }}>{p.type}</span>
+                    {p.verified && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>VERIFIED</span>
+                    )}
+                    {p.is_mobile && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.12)' }}>MOBILE</span>
+                    )}
+                    {!p.is_mobile && p.line_type && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: '#555', border: '1px solid rgba(255,255,255,0.06)' }}>{(p.line_type || '').toUpperCase()}</span>
                     )}
                     {p.carrier && (
-                      <span className="font-mono text-[9px] text-ink-3">{p.carrier}</span>
-                    )}
-                    {p.dnc && (
-                      <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>DNC</span>
+                      <span className="font-mono text-[8px] text-ink-3">{p.carrier}</span>
                     )}
                   </div>
                 ))}
@@ -154,10 +179,24 @@ export default function UnlockButton({ leadId, address }) {
               <div className="mb-3">
                 <div className="font-mono text-[10px] text-ink-3 mb-1.5">EMAILS</div>
                 {person.emails.map((e, j) => (
-                  <a key={j} href={`mailto:${e.email}`}
-                    className="text-[14px] text-ink-0 font-mono mb-1 block hover:text-accent transition-colors">
-                    {e.email}
-                  </a>
+                  <div key={j} className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <a href={`mailto:${e.email}`}
+                      className="text-[14px] text-ink-0 font-mono hover:text-accent transition-colors">
+                      {e.email}
+                    </a>
+                    {e.deliverable && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.12)' }}>DELIVERABLE</span>
+                    )}
+                    {e.risky && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.12)' }}>RISKY</span>
+                    )}
+                    {e.invalid && (
+                      <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.12)' }}>INVALID</span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -174,8 +213,15 @@ export default function UnlockButton({ leadId, address }) {
           </div>
         ))}
 
-        <div className="mt-4 pt-3 text-[11px] text-ink-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          This data is provided by a third-party service and is not stored by BuilderLeads.
+        <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+            <span className="font-mono text-[9px] text-green-400 tracking-wider">DNC FILTER VERIFIED</span>
+          </div>
+          <div className="text-[11px] text-ink-3">Contact data is fetched live and not stored by BuilderLeads.</div>
         </div>
       </div>
     )
@@ -184,7 +230,7 @@ export default function UnlockButton({ leadId, address }) {
   return (
     <div>
       <button
-        onClick={handleUnlock}
+        onClick={() => handleUnlock(false)}
         disabled={status === 'loading'}
         className="btn-ember w-full"
         style={{ padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600, opacity: status === 'loading' ? 0.6 : 1 }}
