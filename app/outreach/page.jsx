@@ -528,7 +528,6 @@ export default function OutreachPage() {
                     </>
                   )}
                   <CopyButton text={editBodies[`gen_${genDraft.id}`] || genDraft.body} />
-                  <a href={`/leads/${genDraft.lead_id || ''}`} style={{ fontSize:12, fontWeight:600, padding:'8px 16px', borderRadius:10, background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none', cursor:'pointer' }}>View lead</a>
                 </div>
               )}
             </div>
@@ -610,7 +609,6 @@ export default function OutreachPage() {
                         <button className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'#3b82f615', color:'#60a5fa', border:'1px solid #3b82f620' }} onClick={() => handleMarkSent(draft.id)} disabled={isLoading}>Mark as sent</button>
                       )}
                       <CopyButton text={editBodies[draft.id] || draft.body} />
-                      <a href={`/leads/${draft.lead_id}`} className="text-xs font-semibold py-2 px-4 rounded-lg" style={{ background:'rgba(255,255,255,0.04)', color:'#888', border:'1px solid rgba(255,255,255,0.06)', textDecoration:'none' }}>View lead</a>
                     </div>
                   </div>
                 )}
