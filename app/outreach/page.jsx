@@ -226,12 +226,15 @@ export default function OutreachPage() {
       }
 
       // If API returned data, use it and update cache
-      if (freshData !== null) {
+      if (freshData !== null && freshData.length > 0) {
         setDrafts(freshData)
         cacheDrafts(freshData)
         if (freshData.length > 0) await loadDraftSubjects(freshData)
+      } else if (freshData !== null && freshData.length === 0 && cached.length === 0) {
+        // API returned empty AND no cache - genuinely no drafts
+        setDrafts([])
       }
-      // If API failed but we have cache, keep showing cache (already set above)
+      // If API failed or returned empty but cache exists, keep showing cache
 
       // Check for pending draft request
       const raw = localStorage.getItem('bl_draft_request')
